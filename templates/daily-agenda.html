@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      :root {
+        --paper-width: {{paper_width_px}}px;
+        --padding-x: {{default theme.padding_x_px 16}}px;
+        --padding-y: {{default theme.padding_y_px 18}}px;
+        --header-size: {{default theme.header_size_px 38}}px;
+        --content-size: {{default theme.content_size_px 22}}px;
+        --footer-size: {{default theme.footer_size_px 16}}px;
+        --divider-thickness: {{default theme.divider_thickness_px 3}}px;
+        --line-height: {{default theme.line_height 1.2}};
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: var(--paper-width);
+        background: #fff;
+        color: #000;
+        font-family: "Arial", "Helvetica", sans-serif;
+      }
+
+      .receipt {
+        width: var(--paper-width);
+        box-sizing: border-box;
+        padding: var(--padding-y) var(--padding-x);
+      }
+
+      .zone + .zone {
+        margin-top: 14px;
+      }
+
+      .zone-header {
+        border-bottom: var(--divider-thickness) solid #000;
+        padding-bottom: 7px;
+      }
+
+      .title {
+        font-size: var(--header-size);
+        text-transform: uppercase;
+        line-height: 1;
+      }
+
+      .subtitle {
+        margin-top: 6px;
+        font-size: calc(var(--content-size) - 2px);
+      }
+
+      .zone-content {
+        font-size: var(--content-size);
+        line-height: var(--line-height);
+      }
+
+      .section + .section {
+        margin-top: 12px;
+      }
+
+      .label {
+        border-top: 2px solid #000;
+        padding-top: 6px;
+        margin-bottom: 6px;
+        font-size: calc(var(--content-size) - 4px);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .event {
+        margin-bottom: 8px;
+      }
+
+      .event-time {
+        font-size: calc(var(--content-size) - 1px);
+        font-weight: 700;
+      }
+
+      .event-title {
+        font-size: var(--content-size);
+      }
+
+      .event-location {
+        font-size: calc(var(--content-size) - 4px);
+      }
+
+      .alert {
+        margin-bottom: 6px;
+      }
+
+      .notes {
+        white-space: pre-wrap;
+      }
+
+      .zone-footer {
+        border-top: 2px solid #000;
+        padding-top: 8px;
+        font-size: var(--footer-size);
+      }
+    </style>
+  </head>
+  <body>
+    <article class="receipt">
+      {{#if zones.header}}
+        <header class="zone zone-header">
+          <div class="title">{{title}}</div>
+          <div class="subtitle">{{subtitle}}</div>
+        </header>
+      {{/if}}
+
+      {{#if zones.content}}
+        <section class="zone zone-content">
+          {{#if include.weather}}
+            <section class="section">
+              <div class="label">Weather</div>
+              <div>
+                {{#if weather.summary}}{{weather.summary}}{{else}}No weather data{{/if}}
+                {{#if weather.temp}} | {{weather.temp}}{{/if}}
+                {{#if weather.high}} | H {{weather.high}}{{/if}}
+                {{#if weather.low}} / L {{weather.low}}{{/if}}
+              </div>
+            </section>
+          {{/if}}
+
+          {{#if include.sleep}}
+            <section class="section">
+              <div class="label">Sleep</div>
+              <div>{{#if sleep.hours}}{{sleep.hours}}h{{else}}No sleep data{{/if}}</div>
+            </section>
+          {{/if}}
+
+          {{#if include.events}}
+            <section class="section">
+              <div class="label">Events</div>
+              {{#if events.length}}
+                {{#each events}}
+                  <div class="event">
+                    {{#if time}}<div class="event-time">{{time}}</div>{{/if}}
+                    <div class="event-title">{{title}}</div>
+                    {{#if location}}<div class="event-location">{{location}}</div>{{/if}}
+                  </div>
+                {{/each}}
+              {{else}}
+                <div class="event-title">No meetings scheduled.</div>
+              {{/if}}
+            </section>
+          {{/if}}
+
+          {{#if include.alerts}}
+            <section class="section">
+              <div class="label">Alerts</div>
+              {{#if alerts.length}}
+                {{#each alerts}}
+                  <div class="alert">- {{this}}</div>
+                {{/each}}
+              {{else}}
+                <div>No alerts.</div>
+              {{/if}}
+            </section>
+          {{/if}}
+
+          {{#if include.notes}}
+            <section class="section">
+              <div class="label">Notes</div>
+              <div class="notes">{{#if notes}}{{notes}}{{else}}No notes.{{/if}}</div>
+            </section>
+          {{/if}}
+        </section>
+      {{/if}}
+
+      {{#if zones.footer}}
+        <footer class="zone zone-footer">Printed {{printed_at}}</footer>
+      {{/if}}
+    </article>
+  </body>
+</html>

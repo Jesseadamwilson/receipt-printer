@@ -1,0 +1,149 @@
+:root {
+  --bg: #f0ebe2;
+  --panel: #fffaf1;
+  --ink: #1f1b18;
+  --muted: #665e56;
+  --line: #dfd6ca;
+  --accent: #304a55;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", "Trebuchet MS", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 10% 10%, #fff6db 0, transparent 28%),
+    radial-gradient(circle at 90% 0%, #d7ebe5 0, transparent 35%),
+    var(--bg);
+}
+
+main {
+  width: min(960px, 100% - 2rem);
+  margin: 2rem auto;
+  display: grid;
+  gap: 1rem;
+}
+
+h1,
+h2 {
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+p {
+  margin: 0;
+  color: var(--muted);
+}
+
+section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+}
+
+form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.row > label {
+  flex: 1;
+  min-width: 160px;
+}
+
+.checkbox {
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+  color: var(--ink);
+}
+
+.row .checkbox {
+  flex: 0 0 auto;
+  min-width: 120px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+button {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.05);
+}
+
+img#preview {
+  width: min(576px, 100%);
+  border: 1px dashed var(--line);
+  background: #fff;
+}
+
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  background: #f7f2e9;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.75rem;
+  min-height: 80px;
+}
+
+@media (max-width: 640px) {
+  main {
+    width: min(960px, 100% - 1rem);
+    margin: 1rem auto;
+  }
+
+  section {
+    padding: 0.75rem;
+  }
+}

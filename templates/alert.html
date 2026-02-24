@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      :root {
+        --paper-width: {{paper_width_px}}px;
+        --padding-x: {{default theme.padding_x_px 16}}px;
+        --padding-y: {{default theme.padding_y_px 16}}px;
+        --header-size: {{default theme.header_size_px 42}}px;
+        --content-size: {{default theme.content_size_px 28}}px;
+        --footer-size: {{default theme.footer_size_px 18}}px;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: var(--paper-width);
+        background: #fff;
+        color: #000;
+        font-family: "Arial", "Helvetica", sans-serif;
+      }
+
+      .receipt {
+        width: var(--paper-width);
+        box-sizing: border-box;
+        padding: var(--padding-y) var(--padding-x);
+      }
+
+      .zone + .zone {
+        margin-top: 12px;
+      }
+
+      .tag {
+        display: inline-block;
+        border: 3px solid #000;
+        padding: 4px 8px;
+        font-size: calc(var(--content-size) - 10px);
+        text-transform: uppercase;
+      }
+
+      .title {
+        margin-top: 12px;
+        font-size: var(--header-size);
+        text-transform: uppercase;
+      }
+
+      .message {
+        font-size: var(--content-size);
+        line-height: 1.2;
+        white-space: pre-wrap;
+      }
+
+      .meta {
+        font-size: var(--footer-size);
+      }
+    </style>
+  </head>
+  <body>
+    <article class="receipt">
+      {{#if zones.header}}
+        <header class="zone zone-header">
+          {{#if level}}<div class="tag">{{level}}</div>{{/if}}
+          <div class="title">{{default title "Alert"}}</div>
+        </header>
+      {{/if}}
+
+      {{#if zones.content}}
+        <section class="zone zone-content">
+          <div class="message">{{message}}</div>
+        </section>
+      {{/if}}
+
+      {{#if zones.footer}}
+        <footer class="zone zone-footer">
+          <div class="meta">{{default printed_at rendered_at}}</div>
+        </footer>
+      {{/if}}
+    </article>
+  </body>
+</html>

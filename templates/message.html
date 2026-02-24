@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      :root {
+        --paper-width: {{paper_width_px}}px;
+        --padding-x: {{default theme.padding_x_px 18}}px;
+        --padding-y: {{default theme.padding_y_px 24}}px;
+        --header-size: {{default theme.header_size_px 42}}px;
+        --content-size: {{default theme.content_size_px 30}}px;
+        --footer-size: {{default theme.footer_size_px 18}}px;
+        --divider-thickness: {{default theme.divider_thickness_px 4}}px;
+        --line-height: {{default theme.line_height 1.2}};
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: var(--paper-width);
+        background: #fff;
+        color: #000;
+        font-family: "Arial", "Helvetica", sans-serif;
+      }
+
+      .receipt {
+        width: var(--paper-width);
+        box-sizing: border-box;
+        padding: var(--padding-y) var(--padding-x);
+      }
+
+      .zone + .zone {
+        margin-top: 14px;
+      }
+
+      .zone-header {
+        padding-bottom: 8px;
+        border-bottom: var(--divider-thickness) solid #000;
+      }
+
+      .headline {
+        font-size: var(--header-size);
+        line-height: 1;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+      }
+
+      .zone-content {
+        font-size: var(--content-size);
+        line-height: var(--line-height);
+      }
+
+      .line + .line {
+        margin-top: 10px;
+      }
+
+      .zone-footer {
+        border-top: 2px solid #000;
+        padding-top: 8px;
+        font-size: var(--footer-size);
+      }
+
+      .signed {
+        margin-bottom: 8px;
+      }
+
+      .meta {
+        letter-spacing: 0.03em;
+      }
+    </style>
+  </head>
+  <body>
+    <article class="receipt">
+      {{#if zones.header}}
+        <header class="zone zone-header">
+          <div class="headline">{{headline}}</div>
+        </header>
+      {{/if}}
+
+      {{#if zones.content}}
+        <section class="zone zone-content">
+          {{#if content_lines.length}}
+            {{#each content_lines}}
+              <div class="line">{{this}}</div>
+            {{/each}}
+          {{else}}
+            <div class="line">{{message}}</div>
+          {{/if}}
+        </section>
+      {{/if}}
+
+      {{#if zones.footer}}
+        <footer class="zone zone-footer">
+          {{#if footer}}
+            <div class="signed">{{footer}}</div>
+          {{/if}}
+          <div class="meta">Printed {{printed_at}}</div>
+        </footer>
+      {{/if}}
+    </article>
+  </body>
+</html>
