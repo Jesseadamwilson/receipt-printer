@@ -19,10 +19,10 @@
   },
   "map": ["config:rw", "share:rw"],
   "options": {
-    "printer_host": "",
+    "printer_host": "10.0.0.25",
     "printer_port": 9100,
     "transport": "raw_tcp",
-    "print_enabled": false,
+    "print_enabled": true,
     "paper_width_px": 576,
     "default_feed_lines": 3,
     "default_cut": true,
