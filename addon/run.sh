@@ -13,6 +13,7 @@ export PAPER_WIDTH="$(bashio::config 'paper_width')"
 export QUEUE_MAX_RETRIES="$(bashio::config 'queue_max_retries')"
 export QUEUE_RETRY_DELAY_MS="$(bashio::config 'queue_retry_delay_ms')"
 export TEMPLATE_PATH="$(bashio::config 'template_path')"
+export PROFILE_STORE_PATH="$(bashio::config 'profile_store_path')"
 export HA_API_BASE_URL="$(bashio::config 'ha_api_base_url')"
 export HA_API_TOKEN="$(bashio::config 'ha_api_token')"
 export AGENDA_CALENDAR_ENTITIES="$(bashio::config 'agenda_calendar_entities')"
@@ -41,6 +42,7 @@ fi
 bashio::log.info "Starting receipt printer API"
 bashio::log.info "API: ${API_HOST}:${API_PORT} | printer: ${PRINTER_HOST}:${PRINTER_PORT}"
 bashio::log.info "Language: ${PRINTER_LANGUAGE} | model: ${PRINTER_MODEL} | cut: ${PRINTER_CUT_MODE}"
+bashio::log.info "Profile store: ${PROFILE_STORE_PATH}"
 bashio::log.info "HA API base: ${HA_API_BASE_URL} | token configured: $( [ -n \"${HA_API_TOKEN}\" ] && echo yes || echo no )"
 
 exec node /app/src/index.js

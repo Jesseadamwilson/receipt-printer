@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { QueueJobError } = require('./queue');
+const { PROFILE_ITEM_TYPES, PROFILE_TEMPLATES } = require('./profile-store');
 
 function jsonResponse(res, statusCode, payload) {
   const body = JSON.stringify(payload);
@@ -10,9 +11,33 @@ function jsonResponse(res, statusCode, payload) {
     'Content-Length': Buffer.byteLength(body, 'utf8'),
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS'
   });
   res.end(body);
+}
+
+function fileResponse(res, statusCode, filePath, contentType) {
+  if (!fs.existsSync(filePath)) {
+    return false;
+  }
+
+  const body = fs.readFileSync(filePath);
+  res.writeHead(statusCode, {
+    'Content-Type': contentType,
+    'Content-Length': body.length,
+    'Cache-Control': 'no-store'
+  });
+  res.end(body);
+  return true;
+}
+
+function noContentResponse(res) {
+  res.writeHead(204, {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS'
+  });
+  res.end();
 }
 
 function parseJsonBody(req) {
@@ -178,6 +203,7 @@ function normalizeDailyAgendaJob(body, config) {
   const payload = body && typeof body === 'object' ? body : {};
 
   return {
+    profileId: asString(payload.profileId, ''),
     agendaInput: {
       title: asString(payload.title || payload.headline, 'Daily Agenda'),
       subtitle: asString(payload.subtitle, ''),
@@ -215,21 +241,30 @@ function handleQueueError(error, res) {
 }
 
 function createReceiptServer(options) {
-  const { config, queue, serviceMeta } = options;
+  const {
+    config,
+    queue,
+    serviceMeta,
+    profileStore,
+    listEntities
+  } = options;
 
   if (!queue || typeof queue.enqueue !== 'function') {
     throw new Error('createReceiptServer requires a queue with enqueue()');
   }
 
+  if (!profileStore || typeof profileStore.get !== 'function' || typeof profileStore.save !== 'function') {
+    throw new Error('createReceiptServer requires a profileStore with get()/save()');
+  }
+
+  if (typeof listEntities !== 'function') {
+    throw new Error('createReceiptServer requires a listEntities(options) function');
+  }
+
   return http.createServer(async (req, res) => {
     try {
       if (req.method === 'OPTIONS') {
-        res.writeHead(204, {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type',
-          'Access-Control-Allow-Methods': 'GET,POST,OPTIONS'
-        });
-        res.end();
+        noContentResponse(res);
         return;
       }
 
@@ -241,7 +276,64 @@ function createReceiptServer(options) {
       const fullUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
       const pathname = fullUrl.pathname;
 
+      if (req.method === 'GET' && (pathname === '/' || pathname === '/ui' || pathname === '/ui/')) {
+        const uiPath = path.join(config.publicDir, 'settings.html');
+        if (fileResponse(res, 200, uiPath, 'text/html; charset=utf-8')) {
+          return;
+        }
+      }
+
+      if (req.method === 'GET' && (pathname === '/ui/settings.js' || pathname === '/settings.js')) {
+        const scriptPath = path.join(config.publicDir, 'settings.js');
+        if (fileResponse(res, 200, scriptPath, 'application/javascript; charset=utf-8')) {
+          return;
+        }
+      }
+
+      if (req.method === 'GET' && (pathname === '/ui/settings.css' || pathname === '/settings.css')) {
+        const stylePath = path.join(config.publicDir, 'settings.css');
+        if (fileResponse(res, 200, stylePath, 'text/css; charset=utf-8')) {
+          return;
+        }
+      }
+
+      if (req.method === 'GET' && pathname === '/api/profiles') {
+        const profiles = profileStore.get();
+        jsonResponse(res, 200, {
+          ok: true,
+          ...profiles,
+          templates: PROFILE_TEMPLATES,
+          itemTypes: PROFILE_ITEM_TYPES
+        });
+        return;
+      }
+
+      if ((req.method === 'PUT' || req.method === 'POST') && pathname === '/api/profiles') {
+        const body = await parseJsonBody(req);
+        const saved = profileStore.save(body);
+        jsonResponse(res, 200, {
+          ok: true,
+          ...saved,
+          templates: PROFILE_TEMPLATES,
+          itemTypes: PROFILE_ITEM_TYPES
+        });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/entities') {
+        const entities = await listEntities({
+          search: fullUrl.searchParams.get('q') || '',
+          type: fullUrl.searchParams.get('type') || '',
+          limit: asInt(fullUrl.searchParams.get('limit'), 300)
+        });
+
+        jsonResponse(res, 200, { ok: true, entities });
+        return;
+      }
+
       if (req.method === 'GET' && pathname === '/health') {
+        const profiles = profileStore.get();
+
         jsonResponse(res, 200, {
           ok: true,
           service: serviceMeta.name,
@@ -275,6 +367,11 @@ function createReceiptServer(options) {
             notesEntity: config.agendaNotesEntity,
             sectionOrder: config.agendaSectionOrder,
             timeWindowHours: config.agendaTimeWindowHours
+          },
+          profiles: {
+            storePath: profileStore.getStorePath(),
+            count: Array.isArray(profiles.profiles) ? profiles.profiles.length : 0,
+            defaultDailyAgendaProfileId: profiles.defaultDailyAgendaProfileId
           },
           queue: queue.getStatus()
         });

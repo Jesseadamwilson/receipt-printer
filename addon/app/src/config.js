@@ -99,6 +99,10 @@ function loadConfig() {
   return {
     apiHost: parseStringEnv('API_HOST', '0.0.0.0'),
     apiPort: parseIntEnv('API_PORT', 8099),
+    profileStorePath: parseStringEnv(
+      'PROFILE_STORE_PATH',
+      path.resolve(process.cwd(), 'output', 'profiles.json')
+    ),
     printerHost: parseStringEnv('PRINTER_HOST', '10.0.0.25'),
     printerPort: parseIntEnv('PRINTER_PORT', 9100),
     printerLanguage: parseStringEnv('PRINTER_LANGUAGE', 'star-prnt'),
@@ -132,6 +136,7 @@ function loadConfig() {
     },
     paperWidth: parseIntEnv('PAPER_WIDTH', 576),
     chromiumPath: resolveChromiumPath(),
+    publicDir: path.resolve(process.cwd(), 'public'),
     outputDir: path.resolve(process.cwd(), 'output'),
     templatePath: templatePaths[0],
     templatePaths

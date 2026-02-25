@@ -1,3 +1,5 @@
+const { fetchHomeAssistantJson } = require('./ha-client');
+
 function asString(value, fallback = '') {
   if (value === undefined || value === null) {
     return fallback;
@@ -36,46 +38,6 @@ function shouldTreatAsMissingValue(value) {
   return false;
 }
 
-function sanitizeBaseUrl(value) {
-  const base = asString(value, '').replace(/\/+$/, '');
-  if (!base) {
-    return '';
-  }
-  return base;
-}
-
-function buildHeaders(config) {
-  const headers = {
-    Accept: 'application/json'
-  };
-
-  const token = asString(config.haApiToken, '');
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  return headers;
-}
-
-async function fetchJson(config, endpoint) {
-  const baseUrl = sanitizeBaseUrl(config.haApiBaseUrl);
-  if (!baseUrl) {
-    return null;
-  }
-
-  const url = `${baseUrl}${endpoint}`;
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: buildHeaders(config)
-  });
-
-  if (!response.ok) {
-    throw new Error(`HA API request failed (${response.status}) for ${endpoint}`);
-  }
-
-  return response.json();
-}
-
 async function fetchState(config, entityId) {
   const cleanEntityId = asString(entityId, '');
   if (!cleanEntityId) {
@@ -83,7 +45,7 @@ async function fetchState(config, entityId) {
   }
 
   try {
-    return await fetchJson(config, `/states/${encodeURIComponent(cleanEntityId)}`);
+    return await fetchHomeAssistantJson(config, `/states/${encodeURIComponent(cleanEntityId)}`);
   } catch (error) {
     warn(`state fetch failed for ${cleanEntityId}: ${error.message}`);
     return null;
@@ -98,7 +60,7 @@ async function fetchCalendarEvents(config, entityId, startIso, endIso) {
 
   try {
     const endpoint = `/calendars/${encodeURIComponent(cleanEntityId)}?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}`;
-    const events = await fetchJson(config, endpoint);
+    const events = await fetchHomeAssistantJson(config, endpoint);
     return Array.isArray(events) ? events : [];
   } catch (error) {
     warn(`calendar fetch failed for ${cleanEntityId}: ${error.message}`);

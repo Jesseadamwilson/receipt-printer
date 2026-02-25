@@ -1,12 +1,12 @@
 {
   "name": "ha-receipt-printer-spike",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "private": true,
   "description": "Fresh Node receipt printer spike for Home Assistant workflows",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
-    "check": "node --check src/config.js && node --check src/daily-agenda.js && node --check src/ha-data-source.js && node --check src/queue.js && node --check src/server.js && node --check src/index.js && node --check src/printer-client.js && node --check src/render-template.js && node --check scripts/test-text.js && node --check scripts/test-image.js && node --check scripts/render-template.js && node --check scripts/test-render-print.js",
+    "check": "node --check src/config.js && node --check src/daily-agenda.js && node --check src/ha-client.js && node --check src/ha-data-source.js && node --check src/profile-store.js && node --check src/queue.js && node --check src/server.js && node --check src/index.js && node --check src/printer-client.js && node --check src/render-template.js && node --check public/settings.js && node --check scripts/test-text.js && node --check scripts/test-image.js && node --check scripts/render-template.js && node --check scripts/test-render-print.js",
     "start": "node src/index.js",
     "api": "node src/index.js",
     "print:text": "node scripts/test-text.js",

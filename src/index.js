@@ -6,11 +6,29 @@ const { createReceiptServer } = require('./server');
 const { renderTemplateToPng } = require('./render-template');
 const { buildDailyAgendaTemplateData } = require('./daily-agenda');
 const { hydrateDailyAgendaFromHomeAssistant } = require('./ha-data-source');
+const { listHomeAssistantEntities } = require('./ha-client');
+const {
+  createProfileStore,
+  deriveAgendaSourceConfigFromProfile
+} = require('./profile-store');
 const {
   encodeTextReceipt,
   encodeImageReceipt,
   sendToPrinter
 } = require('./printer-client');
+
+function asString(value, fallback = '') {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  const result = String(value).trim();
+  if (!result) {
+    return fallback;
+  }
+
+  return result;
+}
 
 function readPackageMetadata() {
   try {
@@ -122,18 +140,33 @@ async function runRenderJob(config, payload) {
   };
 }
 
-async function runDailyAgendaJob(config, payload) {
+async function runDailyAgendaJob(config, deps, payload) {
+  const profileStore = deps && deps.profileStore ? deps.profileStore : null;
+  const requestedProfileId = asString(payload && payload.profileId, '');
+  const selectedProfile = profileStore
+    ? (requestedProfileId
+      ? profileStore.getProfileById(requestedProfileId)
+      : profileStore.getDefaultDailyAgendaProfile())
+    : null;
+
+  const profileSources = selectedProfile
+    ? deriveAgendaSourceConfigFromProfile(selectedProfile, config)
+    : null;
+  const effectiveConfig = profileSources
+    ? { ...config, ...profileSources }
+    : config;
+
   const rawInput = payload && payload.agendaInput && typeof payload.agendaInput === 'object'
     ? payload.agendaInput
     : {};
 
-  const hydratedInput = await hydrateDailyAgendaFromHomeAssistant(config, rawInput);
+  const hydratedInput = await hydrateDailyAgendaFromHomeAssistant(effectiveConfig, rawInput);
   const templateData = buildDailyAgendaTemplateData(hydratedInput, {
     includeDefaults: config.agendaIncludeDefaults,
-    sectionOrder: config.agendaSectionOrder
+    sectionOrder: effectiveConfig.agendaSectionOrder
   });
 
-  const result = await runRenderJob(config, {
+  const result = await runRenderJob(effectiveConfig, {
     templateData,
     print: payload.print
   });
@@ -143,11 +176,19 @@ async function runDailyAgendaJob(config, payload) {
     mode: 'daily_agenda',
     include: templateData.include,
     sectionOrder: templateData.sectionOrder,
-    sourceDataSummary: summarizeAgendaInput(hydratedInput)
+    sourceDataSummary: summarizeAgendaInput(hydratedInput),
+    profile: selectedProfile
+      ? {
+        id: selectedProfile.id,
+        name: selectedProfile.name,
+        template: selectedProfile.template,
+        itemCount: Array.isArray(selectedProfile.items) ? selectedProfile.items.length : 0
+      }
+      : null
   };
 }
 
-async function runPrintJob(config, job) {
+async function runPrintJob(config, deps, job) {
   switch (job.type) {
     case 'text':
       return runTextJob(config, job.payload);
@@ -156,7 +197,7 @@ async function runPrintJob(config, job) {
     case 'render':
       return runRenderJob(config, job.payload);
     case 'daily_agenda':
-      return runDailyAgendaJob(config, job.payload);
+      return runDailyAgendaJob(config, deps, job.payload);
     default:
       throw new Error(`Unsupported job type: ${job.type}`);
   }
@@ -165,17 +206,23 @@ async function runPrintJob(config, job) {
 function startServer() {
   const config = loadConfig();
   const serviceMeta = readPackageMetadata();
+  const profileStore = createProfileStore(config);
+  const deps = {
+    profileStore
+  };
 
   const queue = new PrintQueue({
     maxRetries: config.queueMaxRetries,
     retryDelayMs: config.queueRetryDelayMs,
-    worker: (job) => runPrintJob(config, job)
+    worker: (job) => runPrintJob(config, deps, job)
   });
 
   const server = createReceiptServer({
     config,
     queue,
-    serviceMeta
+    serviceMeta,
+    profileStore,
+    listEntities: (options) => listHomeAssistantEntities(config, options)
   });
 
   server.on('error', (error) => {

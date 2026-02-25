@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Receipt Printer Profiles</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Home Assistant Add-on</p>
+        <h1>Receipt Printer Profiles</h1>
+        <p class="subtle">
+          Configure print profiles, template type, and ordered entity-driven sections.
+        </p>
+      </div>
+      <div class="actions">
+        <button id="reload-btn" class="btn">Reload</button>
+        <button id="save-btn" class="btn btn-primary">Save Changes</button>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="panel profiles-panel">
+        <div class="panel-header">
+          <h2>Print Profiles</h2>
+          <button id="add-profile-btn" class="btn">Add Profile</button>
+        </div>
+        <div id="profile-list" class="profile-list"></div>
+      </aside>
+
+      <section class="panel editor-panel">
+        <div id="empty-state" class="empty-state">
+          <h3>No profile selected</h3>
+          <p>Create or select a profile to edit template type and data sources.</p>
+        </div>
+
+        <div id="editor" class="editor" hidden>
+          <div class="field-grid">
+            <label class="field">
+              <span>Name</span>
+              <input id="profile-name" type="text" placeholder="Daily Agenda">
+            </label>
+            <label class="field">
+              <span>Template</span>
+              <select id="profile-template"></select>
+            </label>
+            <label class="field field-checkbox">
+              <span>Enabled</span>
+              <input id="profile-enabled" type="checkbox">
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Default Daily Agenda Profile</span>
+            <select id="default-daily-profile"></select>
+          </label>
+
+          <div class="panel-note">
+            <strong>Note:</strong> data-source items are currently applied to the
+            <code>daily_agenda</code> template path.
+          </div>
+
+          <div class="items-header">
+            <h3>Data Sources / Sections</h3>
+            <button id="add-item-btn" class="btn">Add Item</button>
+          </div>
+          <p class="subtle items-help">
+            Drag rows to reorder. Type controls rendering behavior; entity controls data source.
+          </p>
+          <div id="item-list" class="item-list"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="status-bar" class="status-bar" data-kind="info">Loading profiles...</div>
+  <script src="settings.js"></script>
+</body>
+</html>

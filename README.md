@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.5.1`.
+Current package/add-on version: `0.6.0`.
 
 ## Win Sequence
 
@@ -9,6 +9,7 @@ Current package/add-on version: `0.5.1`.
 2. Image print from PNG over TCP socket
 3. HTML/CSS -> PNG (Playwright) -> print
 4. Local API + single-worker queue + retries
+5. Ingress UI for modular print profiles + drag/drop data-source ordering
 
 ## Setup
 
@@ -16,6 +17,8 @@ Current package/add-on version: `0.5.1`.
 2. Copy `.env.example` to `.env` and adjust values.
 3. Install project packages with npm: `npm install`
 4. Run checks: `npm run check`
+
+Local profile storage default is `output/profiles.json` unless `PROFILE_STORE_PATH` is set.
 
 ## Commands
 
@@ -103,6 +106,27 @@ Check a specific job:
 
 - `curl "http://localhost:8099/jobs/<job-id>"`
 
+Profiles API and UI:
+
+- `GET /ui` (or `/`) -> profile editor
+- `GET /api/profiles` -> current profile store
+- `PUT /api/profiles` -> save profile store
+- `GET /api/entities?type=battery&q=iphone` -> searchable HA entity list
+
+Example: print daily agenda with a selected profile:
+
+```bash
+curl -X POST "http://localhost:8099/print/daily-agenda" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profileId": "daily_agenda_main",
+    "title": "Daily Agenda",
+    "subtitle": "Today",
+    "source": "auto",
+    "print": { "feedLines": 3, "cut": true }
+  }'
+```
+
 ## Home Assistant Add-on (Step 3)
 
 This repo now includes a Home Assistant add-on bundle in:
@@ -128,6 +152,7 @@ Recommended options for your current Star test printer:
 - `printer_language`: `star-prnt`
 - `printer_model`: `star-mc-print3`
 - `printer_cut_mode`: `full`
+- `profile_store_path`: `/config/receipt-printer/profiles.json`
 
 Daily agenda source options (configured in add-on settings):
 
@@ -139,6 +164,15 @@ Daily agenda source options (configured in add-on settings):
 - `agenda_notes_entity`
 - `agenda_section_order` (example: `weather,events,battery,alerts,notes`)
 - `agenda_time_window_hours` (calendar look-ahead window)
+
+Profile editor (new in v0.6.0):
+
+- Open add-on ingress and go to `/ui` to manage profiles.
+- Add/remove profiles and set each profile template (`daily_agenda`, `message`, `template`).
+- Add/remove typed items (`weather`, `sleep`, `calendar`, `battery`, `alert`, `notes`).
+- Search/select entities from your HA state list in each row.
+- Drag/drop rows to control render order.
+- Set default daily agenda profile used when `profileId` is omitted on `/print/daily-agenda`.
 
 Example values for your setup:
 
