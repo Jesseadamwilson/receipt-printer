@@ -84,7 +84,9 @@ async function runRenderJob(config, payload) {
   const imagePath = await renderTemplateToPng(config, {
     headline: templateData.headline || 'HA Receipt Printer',
     lines: Array.isArray(templateData.lines) ? templateData.lines : [],
-    printedAt: templateData.printedAt || new Date().toLocaleString()
+    printedAt: templateData.printedAt || new Date().toLocaleString(),
+    showHeader: templateData.showHeader,
+    showFooter: templateData.showFooter
   });
 
   const encoded = encodeImageReceipt(config, {
@@ -104,6 +106,17 @@ async function runRenderJob(config, payload) {
   };
 }
 
+async function runDailyAgendaJob(config, payload) {
+  const result = await runRenderJob(config, payload);
+  return {
+    ...result,
+    mode: 'daily_agenda',
+    include: payload.templateData && payload.templateData.include
+      ? payload.templateData.include
+      : undefined
+  };
+}
+
 async function runPrintJob(config, job) {
   switch (job.type) {
     case 'text':
@@ -112,6 +125,8 @@ async function runPrintJob(config, job) {
       return runImageJob(config, job.payload);
     case 'render':
       return runRenderJob(config, job.payload);
+    case 'daily_agenda':
+      return runDailyAgendaJob(config, job.payload);
     default:
       throw new Error(`Unsupported job type: ${job.type}`);
   }

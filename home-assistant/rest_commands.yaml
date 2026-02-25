@@ -1,0 +1,43 @@
+rest_command:
+  receipt_printer_print_text:
+    url: "http://homeassistant.local:8099/print/text"
+    method: POST
+    content_type: "application/json"
+    payload: >-
+      {
+        "headline": {{ (headline | default('Home Assistant')) | tojson }},
+        "message": {{ (message | default(states('input_text.receipt_message'))) | tojson }},
+        "print": { "feedLines": 3, "cut": true }
+      }
+
+  receipt_printer_print_daily_agenda:
+    url: "http://homeassistant.local:8099/print/daily-agenda"
+    method: POST
+    content_type: "application/json"
+    payload: >-
+      {
+        "title": "Daily Agenda",
+        "subtitle": {{ now().strftime('%A, %b %d') | tojson }},
+        "weather": {
+          "summary": {{ states('weather.home') | tojson }},
+          "temp": {{ ((state_attr('weather.home', 'temperature') | string) ~ (state_attr('weather.home', 'temperature_unit') | string)) | tojson }}
+        },
+        "sleep": {
+          "hours": {{ states('sensor.sleep_hours') | tojson }}
+        },
+        "alerts": {{ [
+          'Litter box attention needed' if is_state('binary_sensor.litter_box_attention', 'on') else '',
+          'Roborock needs attention' if is_state('vacuum.roborock', 'error') else ''
+        ] | reject('equalto', '') | list | tojson }},
+        "notes": {{ states('input_text.receipt_notes') | tojson }},
+        "include": {
+          "header": {{ 'true' if is_state('input_boolean.receipt_agenda_include_header', 'on') else 'false' }},
+          "weather": {{ 'true' if is_state('input_boolean.receipt_agenda_include_weather', 'on') else 'false' }},
+          "sleep": {{ 'true' if is_state('input_boolean.receipt_agenda_include_sleep', 'on') else 'false' }},
+          "events": {{ 'true' if is_state('input_boolean.receipt_agenda_include_events', 'on') else 'false' }},
+          "alerts": {{ 'true' if is_state('input_boolean.receipt_agenda_include_alerts', 'on') else 'false' }},
+          "notes": {{ 'true' if is_state('input_boolean.receipt_agenda_include_notes', 'on') else 'false' }},
+          "footer": {{ 'true' if is_state('input_boolean.receipt_agenda_include_footer', 'on') else 'false' }}
+        },
+        "print": { "feedLines": 3, "cut": true }
+      }

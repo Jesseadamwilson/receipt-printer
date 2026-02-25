@@ -23,6 +23,23 @@ function parseStringEnv(name, fallback) {
   return String(raw).trim();
 }
 
+function parseBooleanEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null) {
+    return fallback;
+  }
+
+  const normalized = String(raw).trim().toLowerCase();
+  if (normalized === 'true') {
+    return true;
+  }
+  if (normalized === 'false') {
+    return false;
+  }
+
+  return fallback;
+}
+
 function resolveChromiumPath() {
   const configured = parseStringEnv('CHROMIUM_PATH', '');
   if (configured && fs.existsSync(configured)) {
@@ -73,6 +90,15 @@ function loadConfig() {
     printTimeoutMs: parseIntEnv('PRINT_TIMEOUT_MS', 15000),
     queueMaxRetries: parseIntEnv('QUEUE_MAX_RETRIES', 2),
     queueRetryDelayMs: parseIntEnv('QUEUE_RETRY_DELAY_MS', 1000),
+    agendaIncludeDefaults: {
+      header: parseBooleanEnv('AGENDA_INCLUDE_HEADER', true),
+      weather: parseBooleanEnv('AGENDA_INCLUDE_WEATHER', true),
+      sleep: parseBooleanEnv('AGENDA_INCLUDE_SLEEP', true),
+      events: parseBooleanEnv('AGENDA_INCLUDE_EVENTS', true),
+      alerts: parseBooleanEnv('AGENDA_INCLUDE_ALERTS', true),
+      notes: parseBooleanEnv('AGENDA_INCLUDE_NOTES', true),
+      footer: parseBooleanEnv('AGENDA_INCLUDE_FOOTER', true)
+    },
     paperWidth: parseIntEnv('PAPER_WIDTH', 576),
     chromiumPath: resolveChromiumPath(),
     outputDir: path.resolve(process.cwd(), 'output'),

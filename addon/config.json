@@ -1,6 +1,6 @@
 {
   "name": "Receipt Printer Spike",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "slug": "receipt_printer",
   "description": "Template-rendered receipt printing API over raw TCP for Home Assistant",
   "url": "https://github.com/Jesseadamwilson/receipt-printer",
@@ -28,7 +28,14 @@
     "paper_width": 576,
     "queue_max_retries": 2,
     "queue_retry_delay_ms": 1000,
-    "template_path": "/config/receipt-printer/templates/receipt.html"
+    "template_path": "/config/receipt-printer/templates/receipt.html",
+    "agenda_include_header": true,
+    "agenda_include_weather": true,
+    "agenda_include_sleep": true,
+    "agenda_include_events": true,
+    "agenda_include_alerts": true,
+    "agenda_include_notes": true,
+    "agenda_include_footer": true
   },
   "schema": {
     "printer_host": "str",
@@ -40,6 +47,13 @@
     "paper_width": "int(256,1200)",
     "queue_max_retries": "int(0,5)",
     "queue_retry_delay_ms": "int(0,60000)",
-    "template_path": "str?"
+    "template_path": "str?",
+    "agenda_include_header": "bool",
+    "agenda_include_weather": "bool",
+    "agenda_include_sleep": "bool",
+    "agenda_include_events": "bool",
+    "agenda_include_alerts": "bool",
+    "agenda_include_notes": "bool",
+    "agenda_include_footer": "bool"
   }
 }

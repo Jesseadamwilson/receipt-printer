@@ -15,17 +15,40 @@ function buildContentHtml(lines) {
   return lines.map((line) => `<p class="line">${escapeHtml(line)}</p>`).join('\n');
 }
 
+function buildHeaderHtml(data) {
+  if (data && data.showHeader === false) {
+    return '';
+  }
+
+  const headline = escapeHtml(data && data.headline ? data.headline : '');
+  return `<header class="header"><h1>${headline}</h1></header>`;
+}
+
+function buildFooterHtml(data) {
+  if (data && data.showFooter === false) {
+    return '';
+  }
+
+  const printedAt = escapeHtml(data && data.printedAt ? data.printedAt : '');
+  const label = printedAt ? `Printed: ${printedAt}` : '';
+  return `<footer class="footer">${label}</footer>`;
+}
+
 function renderTemplateString(templateHtml, data) {
   const map = {
     headline: escapeHtml(data.headline || ''),
     content_html: buildContentHtml(Array.isArray(data.lines) ? data.lines : []),
-    printedAt: escapeHtml(data.printedAt || '')
+    printedAt: escapeHtml(data.printedAt || ''),
+    header_html: buildHeaderHtml(data),
+    footer_html: buildFooterHtml(data)
   };
 
   return templateHtml
+    .replace('{{header_html}}', map.header_html)
     .replace('{{headline}}', map.headline)
     .replace('{{content_html}}', map.content_html)
-    .replace('{{printedAt}}', map.printedAt);
+    .replace('{{printedAt}}', map.printedAt)
+    .replace('{{footer_html}}', map.footer_html);
 }
 
 function resolveTemplatePath(config) {

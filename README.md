@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.3.0`.
+Current package/add-on version: `0.4.0`.
 
 ## Win Sequence
 
@@ -70,6 +70,32 @@ curl -X POST "http://localhost:8099/print/render" \
   }'
 ```
 
+Print daily agenda:
+
+```bash
+curl -X POST "http://localhost:8099/print/daily-agenda" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Daily Agenda",
+    "subtitle": "Wednesday",
+    "weather": { "summary": "Cloudy", "temp": "64F", "high": "68F", "low": "54F" },
+    "sleep": { "hours": "7.2" },
+    "events": [{ "time": "09:00", "title": "Standup", "location": "Office" }],
+    "alerts": ["Litter box needs cleaning"],
+    "notes": "Replace air filter",
+    "include": {
+      "header": true,
+      "weather": true,
+      "sleep": true,
+      "events": true,
+      "alerts": true,
+      "notes": true,
+      "footer": true
+    },
+    "print": { "feedLines": 3, "cut": true }
+  }'
+```
+
 Check a specific job:
 
 - `curl "http://localhost:8099/jobs/<job-id>"`
@@ -115,6 +141,30 @@ Template override path:
 - Default override file: `/config/receipt-printer/templates/receipt.html`
 - If that file exists, it is used before the bundled `addon/app/templates/receipt.html`.
 - You can also set `template_path` in add-on options to point to a different file.
+
+## Home Assistant Wiring (Step 4)
+
+Ready-to-copy Home Assistant config examples are included in:
+
+- `home-assistant/helpers.yaml`
+- `home-assistant/rest_commands.yaml`
+- `home-assistant/scripts.yaml`
+- `home-assistant/dashboard-card.yaml`
+
+These provide:
+
+- `input_boolean` toggles for daily agenda sections (`header/weather/sleep/events/alerts/notes/footer`)
+- message and notes `input_text` helpers
+- scripts for `Print Message` and `Print Daily Agenda`
+- a dashboard card layout with buttons and toggles
+
+Apply these snippets in your HA config, reload helpers/scripts/rest commands, then test:
+
+```bash
+curl -X POST "http://homeassistant.local:8099/print/daily-agenda" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"HA Agenda Test","include":{"weather":true,"sleep":false,"events":true,"alerts":true,"notes":true},"print":{"cut":true}}'
+```
 
 ## Notes
 

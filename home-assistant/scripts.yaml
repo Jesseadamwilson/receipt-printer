@@ -1,0 +1,19 @@
+script:
+  receipt_print_message:
+    alias: Receipt Print Message
+    mode: queued
+    fields:
+      message:
+        description: Message body text
+        example: Laundry is done
+    sequence:
+      - action: rest_command.receipt_printer_print_text
+        data:
+          headline: Home Assistant
+          message: "{{ message | default(states('input_text.receipt_message')) }}"
+
+  receipt_print_daily_agenda:
+    alias: Receipt Print Daily Agenda
+    mode: queued
+    sequence:
+      - action: rest_command.receipt_printer_print_daily_agenda

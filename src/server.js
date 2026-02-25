@@ -2,6 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { QueueJobError } = require('./queue');
+const { buildDailyAgendaTemplateData } = require('./daily-agenda');
 
 function jsonResponse(res, statusCode, payload) {
   const body = JSON.stringify(payload);
@@ -162,8 +163,21 @@ function normalizeRenderJob(body, config) {
     templateData: {
       headline: asString(templateData.headline, 'HA Receipt Printer'),
       lines: normalizeLines(templateData.lines, templateData.message),
-      printedAt: asString(templateData.printedAt, new Date().toLocaleString())
+      printedAt: asString(templateData.printedAt, new Date().toLocaleString()),
+      showHeader: asBoolean(templateData.showHeader, true),
+      showFooter: asBoolean(templateData.showFooter, true)
     },
+    print: normalizePrintOptions(body.print, {
+      feedLines: 3,
+      cut: true,
+      cutMode: config.printerCutMode
+    })
+  };
+}
+
+function normalizeDailyAgendaJob(body, config) {
+  return {
+    templateData: buildDailyAgendaTemplateData(body, config.agendaIncludeDefaults),
     print: normalizePrintOptions(body.print, {
       feedLines: 3,
       cut: true,
@@ -233,6 +247,7 @@ function createReceiptServer(options) {
           templates: {
             candidates: config.templatePaths || [config.templatePath]
           },
+          agendaIncludeDefaults: config.agendaIncludeDefaults,
           queue: queue.getStatus()
         });
         return;
@@ -267,6 +282,13 @@ function createReceiptServer(options) {
       if (req.method === 'POST' && pathname === '/print/render') {
         const body = await parseJsonBody(req);
         const job = await queue.enqueue('render', normalizeRenderJob(body, config));
+        jsonResponse(res, 200, { ok: true, job });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/print/daily-agenda') {
+        const body = await parseJsonBody(req);
+        const job = await queue.enqueue('daily_agenda', normalizeDailyAgendaJob(body, config));
         jsonResponse(res, 200, { ok: true, job });
         return;
       }

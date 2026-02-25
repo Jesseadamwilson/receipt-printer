@@ -13,6 +13,13 @@ export PAPER_WIDTH="$(bashio::config 'paper_width')"
 export QUEUE_MAX_RETRIES="$(bashio::config 'queue_max_retries')"
 export QUEUE_RETRY_DELAY_MS="$(bashio::config 'queue_retry_delay_ms')"
 export TEMPLATE_PATH="$(bashio::config 'template_path')"
+export AGENDA_INCLUDE_HEADER="$(bashio::config 'agenda_include_header')"
+export AGENDA_INCLUDE_WEATHER="$(bashio::config 'agenda_include_weather')"
+export AGENDA_INCLUDE_SLEEP="$(bashio::config 'agenda_include_sleep')"
+export AGENDA_INCLUDE_EVENTS="$(bashio::config 'agenda_include_events')"
+export AGENDA_INCLUDE_ALERTS="$(bashio::config 'agenda_include_alerts')"
+export AGENDA_INCLUDE_NOTES="$(bashio::config 'agenda_include_notes')"
+export AGENDA_INCLUDE_FOOTER="$(bashio::config 'agenda_include_footer')"
 
 if command -v chromium-browser >/dev/null 2>&1; then
   export CHROMIUM_PATH="$(command -v chromium-browser)"

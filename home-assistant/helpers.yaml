@@ -1,0 +1,30 @@
+input_text:
+  receipt_message:
+    name: Receipt Message
+    max: 255
+  receipt_notes:
+    name: Receipt Notes
+    max: 255
+
+input_boolean:
+  receipt_agenda_include_header:
+    name: Receipt Agenda Header
+    icon: mdi:format-header-1
+  receipt_agenda_include_weather:
+    name: Receipt Agenda Weather
+    icon: mdi:weather-partly-cloudy
+  receipt_agenda_include_sleep:
+    name: Receipt Agenda Sleep
+    icon: mdi:sleep
+  receipt_agenda_include_events:
+    name: Receipt Agenda Events
+    icon: mdi:calendar
+  receipt_agenda_include_alerts:
+    name: Receipt Agenda Alerts
+    icon: mdi:alert
+  receipt_agenda_include_notes:
+    name: Receipt Agenda Notes
+    icon: mdi:notebook
+  receipt_agenda_include_footer:
+    name: Receipt Agenda Footer
+    icon: mdi:format-footer-1
