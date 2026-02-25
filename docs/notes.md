@@ -11,7 +11,10 @@
 - Preview-first API + ingress UI.
 - Zone-based templates (`header`, `content`, `footer`) with dynamic payload-driven visibility.
 - Theme overrides per request (font sizes, spacing, divider thickness, line-height).
-- ESC/POS raster output over raw TCP with `noop` fallback for pre-printer development.
+- Printer transports:
+  - `raw_tcp` (ESC/POS raster)
+  - `star_webprnt` (Star WebPRNT bitImage)
+  - `noop` fallback for pre-printer development.
 - Queue with timeout and retry support.
 
 ## Daily agenda include toggles

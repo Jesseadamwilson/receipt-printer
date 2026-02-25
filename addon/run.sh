@@ -5,6 +5,8 @@ export PORT=8099
 export PRINTER_HOST="$(bashio::config 'printer_host')"
 export PRINTER_PORT="$(bashio::config 'printer_port')"
 export TRANSPORT="$(bashio::config 'transport')"
+export WEBPRNT_SCHEME="$(bashio::config 'webprnt_scheme')"
+export WEBPRNT_PATH="$(bashio::config 'webprnt_path')"
 export PRINT_ENABLED="$(bashio::config 'print_enabled')"
 export PAPER_WIDTH_PX="$(bashio::config 'paper_width_px')"
 export DEFAULT_FEED_LINES="$(bashio::config 'default_feed_lines')"
@@ -28,6 +30,6 @@ elif command -v chromium >/dev/null 2>&1; then
 fi
 
 bashio::log.info "Starting receipt printer service"
-bashio::log.info "Render width: ${PAPER_WIDTH_PX}px | print enabled: ${PRINT_ENABLED}"
+bashio::log.info "Render width: ${PAPER_WIDTH_PX}px | transport: ${TRANSPORT} | print enabled: ${PRINT_ENABLED}"
 
 exec node /app/server.js

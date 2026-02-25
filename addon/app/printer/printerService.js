@@ -1,6 +1,7 @@
 const { PNG } = require('pngjs');
 const RawTcpTransport = require('./transports/rawTcpTransport');
 const NoopTransport = require('./transports/noopTransport');
+const StarWebPrntTransport = require('./transports/starWebPrntTransport');
 
 class PrinterService {
   constructor(options) {
@@ -8,6 +9,7 @@ class PrinterService {
     this.defaultFeedLines = options.defaultFeedLines;
     this.defaultCut = options.defaultCut;
     this.defaultThreshold = options.defaultThreshold;
+    this.transportType = options.transport || 'raw_tcp';
     this.transport = this._buildTransport(options);
   }
 
@@ -16,16 +18,25 @@ class PrinterService {
     const feedLines = this._resolveFeedLines(options.feedLines);
     const cut = options.cut === undefined ? this.defaultCut : Boolean(options.cut);
 
-    const { width, height, rasterBytes } = this._pngToRaster(pngBuffer, threshold);
-    const payload = this._buildEscPosPayload({
+    const { width, height, widthBytes, rasterBytes } = this._pngToRaster(pngBuffer, threshold);
+
+    const payloads = this._buildTransportPayloads({
       width,
       height,
+      widthBytes,
       rasterBytes,
       feedLines,
       cut
     });
 
-    const transportResult = await this.transport.send(payload, options.timeoutMs);
+    const transportResults = [];
+    let payloadBytes = 0;
+
+    for (const payload of payloads) {
+      payloadBytes += Buffer.isBuffer(payload) ? payload.length : Buffer.byteLength(String(payload));
+      const result = await this.transport.send(payload, options.timeoutMs);
+      transportResults.push(result);
+    }
 
     return {
       width,
@@ -33,8 +44,10 @@ class PrinterService {
       threshold,
       feedLines,
       cut,
-      payloadBytes: payload.length,
-      ...transportResult
+      payloadBytes,
+      requestCount: payloads.length,
+      transport: this.transportType,
+      ...this._summarizeTransportResults(transportResults)
     };
   }
 
@@ -50,11 +63,43 @@ class PrinterService {
       });
     }
 
+    if (options.transport === 'star_webprnt') {
+      return new StarWebPrntTransport({
+        host: options.host,
+        port: options.port,
+        scheme: options.webPrntScheme,
+        path: options.webPrntPath
+      });
+    }
+
     if (options.transport === 'noop') {
       return new NoopTransport({ reason: 'transport=noop' });
     }
 
     throw new Error(`Unsupported transport: ${options.transport}`);
+  }
+
+  _buildTransportPayloads({ width, height, widthBytes, rasterBytes, feedLines, cut }) {
+    if (this.transportType === 'star_webprnt') {
+      return this._buildStarWebPrntRequests({
+        width,
+        height,
+        widthBytes,
+        rasterBytes,
+        feedLines,
+        cut
+      });
+    }
+
+    return [
+      this._buildEscPosPayload({
+        width,
+        height,
+        rasterBytes,
+        feedLines,
+        cut
+      })
+    ];
   }
 
   _pngToRaster(buffer, threshold) {
@@ -131,6 +176,56 @@ class PrinterService {
     }
 
     return Buffer.concat(chunks);
+  }
+
+  _buildStarWebPrntRequests({ width, height, widthBytes, rasterBytes, feedLines, cut }) {
+    if (width > 832) {
+      throw new Error(`StarWebPRNT bitImage width cannot exceed 832 dots (got ${width})`);
+    }
+
+    const maxChunkHeight = 2400;
+    const requests = [];
+
+    for (let startRow = 0; startRow < height; startRow += maxChunkHeight) {
+      const chunkHeight = Math.min(maxChunkHeight, height - startRow);
+      const startIndex = startRow * widthBytes;
+      const endIndex = startIndex + chunkHeight * widthBytes;
+      const chunk = rasterBytes.subarray(startIndex, endIndex);
+      const base64 = chunk.toString('base64');
+
+      const parts = ['<root>'];
+      parts.push(`<bitImage width='${width}' height='${chunkHeight}'>${base64}</bitImage>`);
+
+      const isLastChunk = startRow + chunkHeight >= height;
+      if (isLastChunk) {
+        if (feedLines > 0) {
+          parts.push(`<feed line='${feedLines}'/>`);
+        }
+
+        if (cut) {
+          parts.push("<cutPaper feed='false' type='partial'/>");
+        }
+      }
+
+      parts.push('</root>');
+      requests.push(parts.join(''));
+    }
+
+    return requests;
+  }
+
+  _summarizeTransportResults(results) {
+    const bytesSent = results.reduce((sum, result) => sum + (result.bytesSent || 0), 0);
+    const simulated = results.some((result) => Boolean(result.simulated));
+
+    const tail = results[results.length - 1] || {};
+
+    return {
+      bytesSent,
+      simulated,
+      transportResult: tail,
+      transportBatches: results.length
+    };
   }
 
   _resolveThreshold(value) {

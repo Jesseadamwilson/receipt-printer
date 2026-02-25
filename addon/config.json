@@ -1,6 +1,6 @@
 {
   "name": "Receipt Printer Service",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "slug": "receipt_printer",
   "description": "Preview-first receipt rendering + printing service for Home Assistant",
   "url": "https://github.com/Jesseadamwilson/receipt-printer",
@@ -19,10 +19,12 @@
   },
   "map": ["config:rw", "share:rw"],
   "options": {
-    "printer_host": "10.0.0.25",
+    "printer_host": "",
     "printer_port": 9100,
     "transport": "raw_tcp",
-    "print_enabled": true,
+    "webprnt_scheme": "http",
+    "webprnt_path": "/StarWebPRNT/SendMessage",
+    "print_enabled": false,
     "paper_width_px": 576,
     "default_feed_lines": 3,
     "default_cut": true,
@@ -41,7 +43,9 @@
   "schema": {
     "printer_host": "str?",
     "printer_port": "int(1,65535)",
-    "transport": "list(raw_tcp|noop)",
+    "transport": "list(raw_tcp|star_webprnt|noop)",
+    "webprnt_scheme": "list(http|https)",
+    "webprnt_path": "str?",
     "print_enabled": "bool",
     "paper_width_px": "int(256,1200)",
     "default_feed_lines": "int(0,12)",

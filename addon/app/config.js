@@ -44,6 +44,16 @@ function parseTemplateDirs() {
   return [...new Set(candidates)];
 }
 
+function parseOptionalStringEnv(name) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+
+  const value = String(raw).trim();
+  return value === '' ? undefined : value;
+}
+
 function resolveChromiumPath() {
   const configured = process.env.CHROMIUM_PATH;
   if (configured) {
@@ -66,6 +76,8 @@ const config = {
     host: process.env.PRINTER_HOST || '',
     port: parseIntEnv('PRINTER_PORT', 9100),
     transport: process.env.TRANSPORT || 'raw_tcp',
+    webPrntScheme: process.env.WEBPRNT_SCHEME || 'http',
+    webPrntPath: parseOptionalStringEnv('WEBPRNT_PATH') || '/StarWebPRNT/SendMessage',
     enabled: parseBoolEnv('PRINT_ENABLED', false),
     defaultFeedLines: parseIntEnv('DEFAULT_FEED_LINES', 3),
     defaultCut: parseBoolEnv('DEFAULT_CUT', true),

@@ -8,7 +8,7 @@ Home Assistant-first receipt rendering + printing service for thermal printers (
 - Home Assistant automations/scripts call the add-on REST API.
 - The add-on handles:
   - HTML/CSS template rendering -> PNG (Playwright)
-  - PNG -> ESC/POS raster conversion
+  - PNG -> printer command payload conversion
   - queued print dispatch to printer transport
 
 ## Install into Home Assistant
@@ -114,7 +114,9 @@ Configured in `addon/config.json`:
 
 - `printer_host`
 - `printer_port` (default `9100`)
-- `transport` (`raw_tcp` or `noop`)
+- `transport` (`raw_tcp`, `star_webprnt`, or `noop`)
+- `webprnt_scheme` (`http` or `https`, default `http`)
+- `webprnt_path` (default `/StarWebPRNT/SendMessage`)
 - `print_enabled`
 - `paper_width_px` (default `576`)
 - `default_feed_lines`
@@ -132,6 +134,18 @@ Configured in `addon/config.json`:
 - `agenda_include_footer`
 
 Agenda include toggles in add-on config become defaults used by `/render/daily-agenda` and `/print/daily-agenda` unless overridden in request payload.
+
+## Star mC-Print3 notes
+
+- mC-Print3/MCP31LB generally works best through `star_webprnt` transport for raster images.
+- Recommended settings for Star mC-Print3:
+  - `transport: star_webprnt`
+  - `printer_host: 10.0.0.25` (your reserved IP)
+  - `printer_port: 80`
+  - `webprnt_scheme: http`
+  - `webprnt_path: /StarWebPRNT/SendMessage`
+
+If `raw_tcp` prints long random characters, the printer is receiving ESC/POS raster bytes in a different command mode. Switch to `star_webprnt`.
 
 ## API endpoints
 
