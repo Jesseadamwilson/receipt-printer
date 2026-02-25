@@ -68,7 +68,10 @@ class PrinterService {
         host: options.host,
         port: options.port,
         scheme: options.webPrntScheme,
-        path: options.webPrntPath
+        path: options.webPrntPath,
+        deviceId: options.webPrntDeviceId,
+        paperType: options.webPrntPaperType,
+        holdPrintTimeoutMs: options.webPrntHoldPrintTimeoutMs
       });
     }
 

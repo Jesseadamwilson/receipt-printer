@@ -124,6 +124,9 @@ Configured in `addon/config.json`:
 - `transport` (`raw_tcp`, `star_webprnt`, or `noop`)
 - `webprnt_scheme` (`http` or `https`, default `http`)
 - `webprnt_path` (default `/StarWebPRNT/SendMessage`)
+- `webprnt_device_id` (default `local_printer`)
+- `webprnt_paper_type` (`normal` default; supports black mark modes)
+- `webprnt_holdprint_timeout_ms` (default `10000`)
 - `print_enabled`
 - `paper_width_px` (default `576`)
 - `default_feed_lines`
@@ -151,6 +154,8 @@ Agenda include toggles in add-on config become defaults used by `/render/daily-a
   - `printer_port: 80` (`9100` is raw TCP and will print HTTP text/noise if used with webPRNT)
   - `webprnt_scheme: http`
   - `webprnt_path: /StarWebPRNT/SendMessage`
+  - `webprnt_device_id: local_printer`
+  - `webprnt_paper_type: normal`
   - Request profile in this add-on forces `papertype='normal'` and `holdprint=invalid` to avoid paper-hold/label-mode surprises.
 
 If `raw_tcp` prints long random characters, the printer is receiving ESC/POS raster bytes in a different command mode. Switch to `star_webprnt`.
