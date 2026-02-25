@@ -16,6 +16,24 @@
   };
 
   const ui = {};
+  const THEME_VARIABLES = [
+    '--primary-background-color',
+    '--secondary-background-color',
+    '--card-background-color',
+    '--ha-card-background',
+    '--primary-text-color',
+    '--secondary-text-color',
+    '--text-primary-color',
+    '--divider-color',
+    '--primary-color',
+    '--error-color',
+    '--ha-card-border-radius',
+    '--ha-card-box-shadow',
+    '--input-fill-color',
+    '--input-outlined-idle-border-color',
+    '--input-outlined-border-color',
+    '--ha-text-field-border-radius'
+  ];
 
   function asString(value, fallback = '') {
     if (value === undefined || value === null) {
@@ -36,6 +54,205 @@
     }
 
     return String(value);
+  }
+
+  function parseColorChannels(value) {
+    const raw = asRawString(value, '').trim();
+    if (!raw) {
+      return null;
+    }
+
+    const rgbMatch = raw.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if (rgbMatch) {
+      return [
+        Math.max(0, Math.min(255, Number(rgbMatch[1]))),
+        Math.max(0, Math.min(255, Number(rgbMatch[2]))),
+        Math.max(0, Math.min(255, Number(rgbMatch[3])))
+      ];
+    }
+
+    const hexMatch = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hexMatch) {
+      const hex = hexMatch[1];
+      if (hex.length === 3) {
+        return [
+          Number.parseInt(`${hex[0]}${hex[0]}`, 16),
+          Number.parseInt(`${hex[1]}${hex[1]}`, 16),
+          Number.parseInt(`${hex[2]}${hex[2]}`, 16)
+        ];
+      }
+
+      return [
+        Number.parseInt(hex.slice(0, 2), 16),
+        Number.parseInt(hex.slice(2, 4), 16),
+        Number.parseInt(hex.slice(4, 6), 16)
+      ];
+    }
+
+    return null;
+  }
+
+  function calculateLuminance(channels) {
+    if (!Array.isArray(channels) || channels.length < 3) {
+      return null;
+    }
+
+    const transform = (channel) => {
+      const normalized = channel / 255;
+      return normalized <= 0.03928
+        ? normalized / 12.92
+        : Math.pow((normalized + 0.055) / 1.055, 2.4);
+    };
+
+    const [r, g, b] = channels;
+    return (0.2126 * transform(r)) + (0.7152 * transform(g)) + (0.0722 * transform(b));
+  }
+
+  function detectDarkFromColors(backgroundColor, textColor) {
+    const bgChannels = parseColorChannels(backgroundColor);
+    const textChannels = parseColorChannels(textColor);
+    const bgLuminance = calculateLuminance(bgChannels);
+    const textLuminance = calculateLuminance(textChannels);
+
+    if (!Number.isFinite(bgLuminance) || !Number.isFinite(textLuminance)) {
+      return null;
+    }
+
+    return bgLuminance < textLuminance;
+  }
+
+  function buildThemeSources(sourceWindow) {
+    const sources = [];
+    const doc = sourceWindow.document;
+    if (!doc) {
+      return sources;
+    }
+
+    if (doc.documentElement) {
+      sources.push(doc.documentElement);
+    }
+    if (doc.body) {
+      sources.push(doc.body);
+    }
+
+    const haRoot = doc.querySelector('home-assistant');
+    if (haRoot) {
+      sources.push(haRoot);
+
+      if (haRoot.shadowRoot) {
+        const haMain = haRoot.shadowRoot.querySelector('home-assistant-main');
+        if (haMain) {
+          sources.push(haMain);
+        }
+      }
+    }
+
+    return sources;
+  }
+
+  function applyFallbackThemeMode(sourceWindow) {
+    const win = sourceWindow || window;
+    const prefersDark = Boolean(
+      win.matchMedia &&
+      win.matchMedia('(prefers-color-scheme: dark)').matches
+    );
+    document.documentElement.dataset.rpTheme = prefersDark ? 'dark' : 'light';
+  }
+
+  function syncThemeVariablesFromParent(sourceWindow) {
+    const sources = buildThemeSources(sourceWindow);
+    if (sources.length === 0) {
+      applyFallbackThemeMode(sourceWindow);
+      return;
+    }
+
+    const themeValues = {};
+    for (const variable of THEME_VARIABLES) {
+      for (const source of sources) {
+        const value = sourceWindow.getComputedStyle(source).getPropertyValue(variable).trim();
+        if (value) {
+          themeValues[variable] = value;
+          break;
+        }
+      }
+    }
+
+    const rootStyle = document.documentElement.style;
+    Object.entries(themeValues).forEach(([name, value]) => {
+      rootStyle.setProperty(name, value);
+    });
+
+    const backgroundColor = themeValues['--primary-background-color'] || '';
+    const textColor = themeValues['--primary-text-color'] || '';
+    const isDark = detectDarkFromColors(backgroundColor, textColor);
+    if (isDark === null) {
+      applyFallbackThemeMode(sourceWindow);
+      return;
+    }
+
+    document.documentElement.dataset.rpTheme = isDark ? 'dark' : 'light';
+  }
+
+  function setupThemeSync() {
+    const parentWindow = window.parent && window.parent !== window
+      ? window.parent
+      : null;
+
+    if (!parentWindow) {
+      applyFallbackThemeMode(window);
+      return;
+    }
+
+    try {
+      const syncTheme = () => {
+        syncThemeVariablesFromParent(parentWindow);
+      };
+
+      syncTheme();
+
+      const observer = new MutationObserver(() => {
+        syncTheme();
+      });
+
+      const doc = parentWindow.document;
+      if (doc.documentElement) {
+        observer.observe(doc.documentElement, {
+          attributes: true,
+          childList: false,
+          subtree: false
+        });
+      }
+
+      if (doc.body) {
+        observer.observe(doc.body, {
+          attributes: true,
+          childList: true,
+          subtree: true
+        });
+      }
+
+      if (doc.head) {
+        observer.observe(doc.head, {
+          attributes: false,
+          childList: true,
+          subtree: true
+        });
+      }
+
+      if (parentWindow.matchMedia) {
+        const media = parentWindow.matchMedia('(prefers-color-scheme: dark)');
+        if (typeof media.addEventListener === 'function') {
+          media.addEventListener('change', syncTheme);
+        } else if (typeof media.addListener === 'function') {
+          media.addListener(syncTheme);
+        }
+      }
+
+      window.addEventListener('focus', syncTheme);
+      setInterval(syncTheme, 2500);
+    } catch (_error) {
+      applyFallbackThemeMode(parentWindow);
+    }
   }
 
   function asBoolean(value, fallback = false) {
@@ -721,6 +938,7 @@
 
   async function init() {
     cacheDom();
+    setupThemeSync();
     bindEvents();
     setDirty(false);
 

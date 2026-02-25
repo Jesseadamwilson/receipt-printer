@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.6.1`.
+Current package/add-on version: `0.6.2`.
 
 ## Win Sequence
 
@@ -171,6 +171,7 @@ Profile editor (v0.6.x):
 - `daily_agenda`: add/remove typed items (`weather`, `sleep`, `calendar`, `battery`, `alert`, `notes`) and reorder with drag/drop.
 - `daily_agenda` item entity values are plain Home Assistant entity ID text fields.
 - `message`: freeform textarea content (emoji-safe text).
+- Ingress UI mirrors Home Assistant theme variables and tracks dark/light mode from the parent UI.
 - Drag/drop rows to control render order.
 - Set default daily agenda profile used when `profileId` is omitted on `/print/daily-agenda`.
 
