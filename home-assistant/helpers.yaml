@@ -19,6 +19,9 @@ input_boolean:
   receipt_agenda_include_events:
     name: Receipt Agenda Events
     icon: mdi:calendar
+  receipt_agenda_include_battery:
+    name: Receipt Agenda Battery
+    icon: mdi:battery
   receipt_agenda_include_alerts:
     name: Receipt Agenda Alerts
     icon: mdi:alert

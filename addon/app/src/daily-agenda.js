@@ -3,9 +3,28 @@ const DEFAULT_AGENDA_INCLUDE = {
   weather: true,
   sleep: true,
   events: true,
+  battery: true,
   alerts: true,
   notes: true,
   footer: true
+};
+
+const DEFAULT_AGENDA_SECTION_ORDER = [
+  'weather',
+  'sleep',
+  'events',
+  'battery',
+  'alerts',
+  'notes'
+];
+
+const SECTION_TITLES = {
+  weather: 'WEATHER',
+  sleep: 'SLEEP',
+  events: 'EVENTS',
+  battery: 'BATTERY',
+  alerts: 'ALERTS',
+  notes: 'NOTES'
 };
 
 function asString(value, fallback = '') {
@@ -48,6 +67,29 @@ function normalizeInclude(rawInclude, defaults = DEFAULT_AGENDA_INCLUDE) {
   }
 
   return normalized;
+}
+
+function normalizeSectionOrder(rawOrder, defaults = DEFAULT_AGENDA_SECTION_ORDER) {
+  const source = Array.isArray(rawOrder)
+    ? rawOrder
+    : (typeof rawOrder === 'string' ? rawOrder.split(/[\n,]/g) : defaults);
+
+  const output = [];
+  for (const item of source) {
+    const normalized = asString(item, '').toLowerCase();
+    if (!normalized || !(normalized in SECTION_TITLES)) {
+      continue;
+    }
+    if (!output.includes(normalized)) {
+      output.push(normalized);
+    }
+  }
+
+  if (output.length === 0) {
+    return [...DEFAULT_AGENDA_SECTION_ORDER];
+  }
+
+  return output;
 }
 
 function appendSection(lines, heading, values) {
@@ -152,36 +194,84 @@ function formatNotesLines(notes) {
     .filter(Boolean);
 }
 
-function buildDailyAgendaTemplateData(payload = {}, defaults = DEFAULT_AGENDA_INCLUDE) {
-  const include = normalizeInclude(payload.include, defaults);
+function normalizeBatteryLevel(value) {
+  const raw = asString(value, '');
+  if (!raw) {
+    return '';
+  }
+
+  if (raw.endsWith('%')) {
+    return raw;
+  }
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return `${Math.round(numeric)}%`;
+  }
+
+  return raw;
+}
+
+function formatBatteryLines(batteries) {
+  if (!Array.isArray(batteries) || batteries.length === 0) {
+    return [];
+  }
+
+  return batteries
+    .map((battery) => {
+      if (typeof battery === 'string') {
+        const value = asString(battery, '');
+        return value || '';
+      }
+
+      if (!battery || typeof battery !== 'object') {
+        return '';
+      }
+
+      const name = asString(
+        battery.name || battery.label || battery.friendlyName || battery.entity,
+        'Battery'
+      );
+      const level = normalizeBatteryLevel(
+        battery.level !== undefined ? battery.level : battery.state
+      );
+
+      if (!level) {
+        return name;
+      }
+
+      return `${name}: ${level}`;
+    })
+    .filter(Boolean);
+}
+
+function buildDailyAgendaTemplateData(payload = {}, options = {}) {
+  const includeDefaults = options.includeDefaults || DEFAULT_AGENDA_INCLUDE;
+  const include = normalizeInclude(payload.include, includeDefaults);
+  const sectionOrder = normalizeSectionOrder(payload.sectionOrder, options.sectionOrder);
   const title = asString(payload.title || payload.headline, 'Daily Agenda');
   const subtitle = asString(payload.subtitle, '');
   const printedAt = asString(payload.printedAt, new Date().toLocaleString());
+  const sections = {
+    weather: formatWeatherLines(payload.weather),
+    sleep: formatSleepLines(payload.sleep),
+    events: formatEventsLines(payload.events),
+    battery: formatBatteryLines(payload.batteries),
+    alerts: formatAlertsLines(payload.alerts),
+    notes: formatNotesLines(payload.notes)
+  };
 
   const lines = [];
-
-  if (include.header && subtitle) {
+  if (subtitle) {
     lines.push(subtitle);
   }
 
-  if (include.weather) {
-    appendSection(lines, 'WEATHER', formatWeatherLines(payload.weather));
-  }
+  for (const section of sectionOrder) {
+    if (!include[section]) {
+      continue;
+    }
 
-  if (include.sleep) {
-    appendSection(lines, 'SLEEP', formatSleepLines(payload.sleep));
-  }
-
-  if (include.events) {
-    appendSection(lines, 'EVENTS', formatEventsLines(payload.events));
-  }
-
-  if (include.alerts) {
-    appendSection(lines, 'ALERTS', formatAlertsLines(payload.alerts));
-  }
-
-  if (include.notes) {
-    appendSection(lines, 'NOTES', formatNotesLines(payload.notes));
+    appendSection(lines, SECTION_TITLES[section], sections[section]);
   }
 
   if (lines.length === 0) {
@@ -194,12 +284,15 @@ function buildDailyAgendaTemplateData(payload = {}, defaults = DEFAULT_AGENDA_IN
     printedAt,
     showHeader: include.header,
     showFooter: include.footer,
-    include
+    include,
+    sectionOrder
   };
 }
 
 module.exports = {
   DEFAULT_AGENDA_INCLUDE,
+  DEFAULT_AGENDA_SECTION_ORDER,
   normalizeInclude,
+  normalizeSectionOrder,
   buildDailyAgendaTemplateData
 };

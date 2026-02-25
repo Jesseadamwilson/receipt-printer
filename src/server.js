@@ -2,7 +2,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const { QueueJobError } = require('./queue');
-const { buildDailyAgendaTemplateData } = require('./daily-agenda');
 
 function jsonResponse(res, statusCode, payload) {
   const body = JSON.stringify(payload);
@@ -176,8 +175,23 @@ function normalizeRenderJob(body, config) {
 }
 
 function normalizeDailyAgendaJob(body, config) {
+  const payload = body && typeof body === 'object' ? body : {};
+
   return {
-    templateData: buildDailyAgendaTemplateData(body, config.agendaIncludeDefaults),
+    agendaInput: {
+      title: asString(payload.title || payload.headline, 'Daily Agenda'),
+      subtitle: asString(payload.subtitle, ''),
+      printedAt: asString(payload.printedAt, new Date().toLocaleString()),
+      include: payload.include && typeof payload.include === 'object' ? payload.include : {},
+      sectionOrder: payload.sectionOrder,
+      source: asString(payload.source, 'auto'),
+      weather: payload.weather && typeof payload.weather === 'object' ? payload.weather : undefined,
+      sleep: payload.sleep && typeof payload.sleep === 'object' ? payload.sleep : undefined,
+      events: Array.isArray(payload.events) ? payload.events : [],
+      batteries: Array.isArray(payload.batteries) ? payload.batteries : [],
+      alerts: Array.isArray(payload.alerts) ? payload.alerts : [],
+      notes: asString(payload.notes, '')
+    },
     print: normalizePrintOptions(body.print, {
       feedLines: 3,
       cut: true,
@@ -248,6 +262,16 @@ function createReceiptServer(options) {
             candidates: config.templatePaths || [config.templatePath]
           },
           agendaIncludeDefaults: config.agendaIncludeDefaults,
+          agendaSources: {
+            calendarEntities: config.agendaCalendarEntities,
+            weatherEntity: config.agendaWeatherEntity,
+            sleepEntity: config.agendaSleepEntity,
+            batteryEntities: config.agendaBatteryEntities,
+            alertEntities: config.agendaAlertEntities,
+            notesEntity: config.agendaNotesEntity,
+            sectionOrder: config.agendaSectionOrder,
+            timeWindowHours: config.agendaTimeWindowHours
+          },
           queue: queue.getStatus()
         });
         return;

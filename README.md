@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.4.0`.
+Current package/add-on version: `0.5.0`.
 
 ## Win Sequence
 
@@ -81,6 +81,7 @@ curl -X POST "http://localhost:8099/print/daily-agenda" \
     "weather": { "summary": "Cloudy", "temp": "64F", "high": "68F", "low": "54F" },
     "sleep": { "hours": "7.2" },
     "events": [{ "time": "09:00", "title": "Standup", "location": "Office" }],
+    "batteries": [{ "name": "Phone", "level": "82%" }],
     "alerts": ["Litter box needs cleaning"],
     "notes": "Replace air filter",
     "include": {
@@ -88,10 +89,12 @@ curl -X POST "http://localhost:8099/print/daily-agenda" \
       "weather": true,
       "sleep": true,
       "events": true,
+      "battery": true,
       "alerts": true,
       "notes": true,
       "footer": true
     },
+    "source": "payload_only",
     "print": { "feedLines": 3, "cut": true }
   }'
 ```
@@ -126,6 +129,23 @@ Recommended options for your current Star test printer:
 - `printer_model`: `star-mc-print3`
 - `printer_cut_mode`: `full`
 
+Daily agenda source options (configured in add-on settings):
+
+- `agenda_calendar_entities` (comma-separated)
+- `agenda_weather_entity`
+- `agenda_sleep_entity`
+- `agenda_battery_entities` (comma-separated)
+- `agenda_alert_entities` (comma-separated)
+- `agenda_notes_entity`
+- `agenda_section_order` (example: `weather,events,battery,alerts,notes`)
+- `agenda_time_window_hours` (calendar look-ahead window)
+
+Example values for your setup:
+
+- `agenda_calendar_entities`: `calendar.onyx_coffee_lab,calendar.jesseadamwilson_gmail_com`
+- `agenda_weather_entity`: `weather.ksgf`
+- `agenda_battery_entities`: `sensor.jesses_iphone_15_pro_battery,sensor.jesses_ipad_battery,sensor.jesses_macbook_pro_battery`
+
 Validate add-on after start:
 
 ```bash
@@ -153,7 +173,7 @@ Ready-to-copy Home Assistant config examples are included in:
 
 These provide:
 
-- `input_boolean` toggles for daily agenda sections (`header/weather/sleep/events/alerts/notes/footer`)
+- `input_boolean` toggles for daily agenda sections (`header/weather/sleep/events/battery/alerts/notes/footer`)
 - message and notes `input_text` helpers
 - scripts for `Print Message` and `Print Daily Agenda`
 - a dashboard card layout with buttons and toggles
@@ -163,7 +183,7 @@ Apply these snippets in your HA config, reload helpers/scripts/rest commands, th
 ```bash
 curl -X POST "http://homeassistant.local:8099/print/daily-agenda" \
   -H "Content-Type: application/json" \
-  -d '{"title":"HA Agenda Test","include":{"weather":true,"sleep":false,"events":true,"alerts":true,"notes":true},"print":{"cut":true}}'
+  -d '{"title":"HA Agenda Test","source":"auto","include":{"weather":true,"sleep":false,"events":true,"battery":true,"alerts":true,"notes":true},"print":{"cut":true}}'
 ```
 
 ## Notes

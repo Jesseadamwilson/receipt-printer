@@ -40,6 +40,23 @@ function parseBooleanEnv(name, fallback) {
   return fallback;
 }
 
+function parseListEnv(name, fallback = []) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null) {
+    return [...fallback];
+  }
+
+  const value = String(raw).trim();
+  if (!value) {
+    return [...fallback];
+  }
+
+  return value
+    .split(/[\n,]/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 function resolveChromiumPath() {
   const configured = parseStringEnv('CHROMIUM_PATH', '');
   if (configured && fs.existsSync(configured)) {
@@ -90,11 +107,25 @@ function loadConfig() {
     printTimeoutMs: parseIntEnv('PRINT_TIMEOUT_MS', 15000),
     queueMaxRetries: parseIntEnv('QUEUE_MAX_RETRIES', 2),
     queueRetryDelayMs: parseIntEnv('QUEUE_RETRY_DELAY_MS', 1000),
+    haApiBaseUrl: parseStringEnv('HA_API_BASE_URL', 'http://supervisor/core/api'),
+    haApiToken: parseStringEnv('HA_API_TOKEN', process.env.SUPERVISOR_TOKEN || ''),
+    agendaCalendarEntities: parseListEnv('AGENDA_CALENDAR_ENTITIES', []),
+    agendaWeatherEntity: parseStringEnv('AGENDA_WEATHER_ENTITY', ''),
+    agendaSleepEntity: parseStringEnv('AGENDA_SLEEP_ENTITY', ''),
+    agendaBatteryEntities: parseListEnv('AGENDA_BATTERY_ENTITIES', []),
+    agendaAlertEntities: parseListEnv('AGENDA_ALERT_ENTITIES', []),
+    agendaNotesEntity: parseStringEnv('AGENDA_NOTES_ENTITY', ''),
+    agendaSectionOrder: parseListEnv(
+      'AGENDA_SECTION_ORDER',
+      ['weather', 'sleep', 'events', 'battery', 'alerts', 'notes']
+    ),
+    agendaTimeWindowHours: parseIntEnv('AGENDA_TIME_WINDOW_HOURS', 24),
     agendaIncludeDefaults: {
       header: parseBooleanEnv('AGENDA_INCLUDE_HEADER', true),
       weather: parseBooleanEnv('AGENDA_INCLUDE_WEATHER', true),
       sleep: parseBooleanEnv('AGENDA_INCLUDE_SLEEP', true),
       events: parseBooleanEnv('AGENDA_INCLUDE_EVENTS', true),
+      battery: parseBooleanEnv('AGENDA_INCLUDE_BATTERY', true),
       alerts: parseBooleanEnv('AGENDA_INCLUDE_ALERTS', true),
       notes: parseBooleanEnv('AGENDA_INCLUDE_NOTES', true),
       footer: parseBooleanEnv('AGENDA_INCLUDE_FOOTER', true)

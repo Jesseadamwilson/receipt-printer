@@ -13,6 +13,7 @@ cards:
       - input_boolean.receipt_agenda_include_weather
       - input_boolean.receipt_agenda_include_sleep
       - input_boolean.receipt_agenda_include_events
+      - input_boolean.receipt_agenda_include_battery
       - input_boolean.receipt_agenda_include_alerts
       - input_boolean.receipt_agenda_include_notes
       - input_boolean.receipt_agenda_include_footer

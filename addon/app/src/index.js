@@ -4,6 +4,8 @@ const { loadConfig } = require('./config');
 const { PrintQueue } = require('./queue');
 const { createReceiptServer } = require('./server');
 const { renderTemplateToPng } = require('./render-template');
+const { buildDailyAgendaTemplateData } = require('./daily-agenda');
+const { hydrateDailyAgendaFromHomeAssistant } = require('./ha-data-source');
 const {
   encodeTextReceipt,
   encodeImageReceipt,
@@ -107,13 +109,26 @@ async function runRenderJob(config, payload) {
 }
 
 async function runDailyAgendaJob(config, payload) {
-  const result = await runRenderJob(config, payload);
+  const rawInput = payload && payload.agendaInput && typeof payload.agendaInput === 'object'
+    ? payload.agendaInput
+    : {};
+
+  const hydratedInput = await hydrateDailyAgendaFromHomeAssistant(config, rawInput);
+  const templateData = buildDailyAgendaTemplateData(hydratedInput, {
+    includeDefaults: config.agendaIncludeDefaults,
+    sectionOrder: config.agendaSectionOrder
+  });
+
+  const result = await runRenderJob(config, {
+    templateData,
+    print: payload.print
+  });
+
   return {
     ...result,
     mode: 'daily_agenda',
-    include: payload.templateData && payload.templateData.include
-      ? payload.templateData.include
-      : undefined
+    include: templateData.include,
+    sectionOrder: templateData.sectionOrder
   };
 }
 

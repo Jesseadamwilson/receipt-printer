@@ -18,26 +18,17 @@ rest_command:
       {
         "title": "Daily Agenda",
         "subtitle": {{ now().strftime('%A, %b %d') | tojson }},
-        "weather": {
-          "summary": {{ states('weather.home') | tojson }},
-          "temp": {{ ((state_attr('weather.home', 'temperature') | string) ~ (state_attr('weather.home', 'temperature_unit') | string)) | tojson }}
-        },
-        "sleep": {
-          "hours": {{ states('sensor.sleep_hours') | tojson }}
-        },
-        "alerts": {{ [
-          'Litter box attention needed' if is_state('binary_sensor.litter_box_attention', 'on') else '',
-          'Roborock needs attention' if is_state('vacuum.roborock', 'error') else ''
-        ] | reject('equalto', '') | list | tojson }},
         "notes": {{ states('input_text.receipt_notes') | tojson }},
         "include": {
           "header": {{ 'true' if is_state('input_boolean.receipt_agenda_include_header', 'on') else 'false' }},
           "weather": {{ 'true' if is_state('input_boolean.receipt_agenda_include_weather', 'on') else 'false' }},
           "sleep": {{ 'true' if is_state('input_boolean.receipt_agenda_include_sleep', 'on') else 'false' }},
           "events": {{ 'true' if is_state('input_boolean.receipt_agenda_include_events', 'on') else 'false' }},
+          "battery": {{ 'true' if is_state('input_boolean.receipt_agenda_include_battery', 'on') else 'false' }},
           "alerts": {{ 'true' if is_state('input_boolean.receipt_agenda_include_alerts', 'on') else 'false' }},
           "notes": {{ 'true' if is_state('input_boolean.receipt_agenda_include_notes', 'on') else 'false' }},
           "footer": {{ 'true' if is_state('input_boolean.receipt_agenda_include_footer', 'on') else 'false' }}
         },
+        "source": "auto",
         "print": { "feedLines": 3, "cut": true }
       }
