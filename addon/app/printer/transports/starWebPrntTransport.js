@@ -24,8 +24,7 @@ class StarWebPrntTransport {
     const url = `${this.scheme}://${this.host}:${this.port}${this.path}`;
 
     const body = new URLSearchParams({
-      request: requestXml,
-      devid: 'local_printer'
+      request: requestXml
     }).toString();
 
     const abortController = new AbortController();

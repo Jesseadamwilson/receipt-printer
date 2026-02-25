@@ -22,6 +22,13 @@ Home Assistant-first receipt rendering + printing service for thermal printers (
 
 This is installed as an **Add-on**. Your HA dashboard buttons/scripts are then built on top of `rest_command` calls.
 
+## Versioning
+
+- For every repo push that changes add-on behavior, bump both:
+  - `addon/config.json` -> `"version"`
+  - `addon/app/package.json` -> `"version"`
+- Keep these two versions aligned so Home Assistant update checks are easy to verify.
+
 ## Local IDE template workflow (preview-first)
 
 Edit templates in:
@@ -144,6 +151,7 @@ Agenda include toggles in add-on config become defaults used by `/render/daily-a
   - `printer_port: 80` (`9100` is raw TCP and will print HTTP text/noise if used with webPRNT)
   - `webprnt_scheme: http`
   - `webprnt_path: /StarWebPRNT/SendMessage`
+  - Request profile in this add-on forces `papertype='normal'` and `holdprint=invalid` to avoid paper-hold/label-mode surprises.
 
 If `raw_tcp` prints long random characters, the printer is receiving ESC/POS raster bytes in a different command mode. Switch to `star_webprnt`.
 

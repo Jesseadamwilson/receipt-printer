@@ -193,7 +193,7 @@ class PrinterService {
       const chunk = rasterBytes.subarray(startIndex, endIndex);
       const base64 = chunk.toString('base64');
 
-      const parts = ["<root checkedblock='true'>"];
+      const parts = ["<root checkedblock='true' papertype='normal'>", '<initialization/>', "<holdprint type='invalid'/>"];
       parts.push(`<bitimage width='${width}' height='${chunkHeight}'>${base64}</bitimage>`);
 
       const isLastChunk = startRow + chunkHeight >= height;

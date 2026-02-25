@@ -1,6 +1,6 @@
 {
   "name": "Receipt Printer Service",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "slug": "receipt_printer",
   "description": "Preview-first receipt rendering + printing service for Home Assistant",
   "url": "https://github.com/Jesseadamwilson/receipt-printer",
