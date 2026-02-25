@@ -1,6 +1,6 @@
 {
   "name": "Receipt Printer Spike",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "slug": "receipt_printer",
   "description": "Template-rendered receipt printing API over raw TCP for Home Assistant",
   "url": "https://github.com/Jesseadamwilson/receipt-printer",
@@ -8,6 +8,8 @@
   "startup": "services",
   "boot": "auto",
   "init": false,
+  "homeassistant_api": true,
+  "hassio_api": true,
   "ingress": true,
   "ingress_port": 8099,
   "panel_icon": "mdi:printer-pos",

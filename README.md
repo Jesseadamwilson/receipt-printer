@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.5.0`.
+Current package/add-on version: `0.5.1`.
 
 ## Win Sequence
 
@@ -145,6 +145,12 @@ Example values for your setup:
 - `agenda_calendar_entities`: `calendar.onyx_coffee_lab,calendar.jesseadamwilson_gmail_com`
 - `agenda_weather_entity`: `weather.ksgf`
 - `agenda_battery_entities`: `sensor.jesses_iphone_15_pro_battery,sensor.jesses_ipad_battery,sensor.jesses_macbook_pro_battery`
+
+If agenda prints only subtitle/no content:
+
+1. Confirm `homeAssistantApi.hasToken` is `true` in `/health`.
+2. Check add-on logs for `[ha-data-source]` warnings.
+3. Verify entity IDs exist and have non-empty state values.
 
 Validate add-on after start:
 

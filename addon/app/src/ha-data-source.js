@@ -11,6 +11,11 @@ function asString(value, fallback = '') {
   return result;
 }
 
+function warn(message) {
+  // eslint-disable-next-line no-console
+  console.warn(`[ha-data-source] ${message}`);
+}
+
 function hasNonEmptyArray(value) {
   return Array.isArray(value) && value.length > 0;
 }
@@ -79,7 +84,8 @@ async function fetchState(config, entityId) {
 
   try {
     return await fetchJson(config, `/states/${encodeURIComponent(cleanEntityId)}`);
-  } catch (_error) {
+  } catch (error) {
+    warn(`state fetch failed for ${cleanEntityId}: ${error.message}`);
     return null;
   }
 }
@@ -94,7 +100,8 @@ async function fetchCalendarEvents(config, entityId, startIso, endIso) {
     const endpoint = `/calendars/${encodeURIComponent(cleanEntityId)}?start=${encodeURIComponent(startIso)}&end=${encodeURIComponent(endIso)}`;
     const events = await fetchJson(config, endpoint);
     return Array.isArray(events) ? events : [];
-  } catch (_error) {
+  } catch (error) {
+    warn(`calendar fetch failed for ${cleanEntityId}: ${error.message}`);
     return [];
   }
 }

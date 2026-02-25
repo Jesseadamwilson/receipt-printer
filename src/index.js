@@ -38,6 +38,20 @@ function buildDefaultPrintOptions(config, inputPrint = {}) {
   };
 }
 
+function summarizeAgendaInput(input) {
+  const source = input && typeof input === 'object' ? input : {};
+
+  return {
+    weather: Boolean(source.weather),
+    sleep: Boolean(source.sleep),
+    events: Array.isArray(source.events) ? source.events.length : 0,
+    batteries: Array.isArray(source.batteries) ? source.batteries.length : 0,
+    alerts: Array.isArray(source.alerts) ? source.alerts.length : 0,
+    notes: Boolean(source.notes && String(source.notes).trim()),
+    source: source.source || 'auto'
+  };
+}
+
 async function runTextJob(config, payload) {
   const print = buildDefaultPrintOptions(config, payload.print);
   const encoded = encodeTextReceipt(config, {
@@ -128,7 +142,8 @@ async function runDailyAgendaJob(config, payload) {
     ...result,
     mode: 'daily_agenda',
     include: templateData.include,
-    sectionOrder: templateData.sectionOrder
+    sectionOrder: templateData.sectionOrder,
+    sourceDataSummary: summarizeAgendaInput(hydratedInput)
   };
 }
 

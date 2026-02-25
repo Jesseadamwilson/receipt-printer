@@ -261,6 +261,10 @@ function createReceiptServer(options) {
           templates: {
             candidates: config.templatePaths || [config.templatePath]
           },
+          homeAssistantApi: {
+            baseUrl: config.haApiBaseUrl,
+            hasToken: Boolean(config.haApiToken)
+          },
           agendaIncludeDefaults: config.agendaIncludeDefaults,
           agendaSources: {
             calendarEntities: config.agendaCalendarEntities,

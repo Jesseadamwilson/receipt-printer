@@ -41,5 +41,6 @@ fi
 bashio::log.info "Starting receipt printer API"
 bashio::log.info "API: ${API_HOST}:${API_PORT} | printer: ${PRINTER_HOST}:${PRINTER_PORT}"
 bashio::log.info "Language: ${PRINTER_LANGUAGE} | model: ${PRINTER_MODEL} | cut: ${PRINTER_CUT_MODE}"
+bashio::log.info "HA API base: ${HA_API_BASE_URL} | token configured: $( [ -n \"${HA_API_TOKEN}\" ] && echo yes || echo no )"
 
 exec node /app/src/index.js
