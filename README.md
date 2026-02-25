@@ -1,245 +1,125 @@
-# HA Receipt Printer
+# HA Receipt Printer Spike (Fresh Start)
 
-Home Assistant-first receipt rendering + printing service for thermal printers (target: EPSON TM-m30III).
+This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
+Current package/add-on version: `0.3.0`.
 
-## Project model
+## Win Sequence
 
-- This project is a **Home Assistant Add-on** (not a native HA Integration yet).
-- Home Assistant automations/scripts call the add-on REST API.
-- The add-on handles:
-  - HTML/CSS template rendering -> PNG (Playwright)
-  - PNG -> printer command payload conversion
-  - queued print dispatch to printer transport
+1. Text print over TCP socket
+2. Image print from PNG over TCP socket
+3. HTML/CSS -> PNG (Playwright) -> print
+4. Local API + single-worker queue + retries
 
-## Install into Home Assistant
+## Setup
+
+1. Install Node with Homebrew (if needed): `brew install node`
+2. Copy `.env.example` to `.env` and adjust values.
+3. Install project packages with npm: `npm install`
+4. Run checks: `npm run check`
+
+## Commands
+
+- `npm run print:text`
+- `npm run print:image`
+- `npm run render`
+- `npm run print:render`
+- `npm run api` (or `npm start`)
+
+## API (Step 1 + 2)
+
+Start the service:
+
+- `npm run api`
+
+Health check:
+
+- `curl "http://localhost:8099/health"`
+
+Print text:
+
+```bash
+curl -X POST "http://localhost:8099/print/text" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "headline": "API Text Test",
+    "message": "Line 1\nLine 2",
+    "print": { "feedLines": 3, "cut": true }
+  }'
+```
+
+Print existing PNG:
+
+```bash
+curl -X POST "http://localhost:8099/print/image" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "imagePath": "output/rendered.png",
+    "print": { "feedLines": 3, "cut": true }
+  }'
+```
+
+Render then print:
+
+```bash
+curl -X POST "http://localhost:8099/print/render" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "headline": "Render API Test",
+    "lines": ["Header zone", "Content zone", "Footer zone"],
+    "print": { "feedLines": 3, "cut": true }
+  }'
+```
+
+Check a specific job:
+
+- `curl "http://localhost:8099/jobs/<job-id>"`
+
+## Home Assistant Add-on (Step 3)
+
+This repo now includes a Home Assistant add-on bundle in:
+
+- `repository.yaml`
+- `addon/config.json`
+- `addon/Dockerfile`
+- `addon/run.sh`
+- `addon/app/*` (runtime app copied from this spike)
+
+Install/update in HA:
 
 1. Push this repo to GitHub.
 2. In Home Assistant: `Settings -> Add-ons -> Add-on Store -> 3-dot menu -> Repositories`.
-3. Add repository URL: `https://github.com/Jesseadamwilson/receipt-printer`.
-4. Open add-on `Receipt Printer Service` and click `Install`.
-5. Configure options (printer host, print mode, agenda defaults), then `Start`.
-6. Open the add-on Web UI (Ingress) to preview/print.
+3. Add: `https://github.com/Jesseadamwilson/receipt-printer`
+4. Open add-on `Receipt Printer Spike` and install/update.
+5. Set options (minimum: `printer_host`, `printer_port`, `printer_language`), then start.
 
-This is installed as an **Add-on**. Your HA dashboard buttons/scripts are then built on top of `rest_command` calls.
+Recommended options for your current Star test printer:
 
-## Versioning
+- `printer_host`: `10.0.0.25`
+- `printer_port`: `9100`
+- `printer_language`: `star-prnt`
+- `printer_model`: `star-mc-print3`
+- `printer_cut_mode`: `full`
 
-- For every repo push that changes add-on behavior, bump both:
-  - `addon/config.json` -> `"version"`
-  - `addon/app/package.json` -> `"version"`
-- Keep these two versions aligned so Home Assistant update checks are easy to verify.
-
-## Local IDE template workflow (preview-first)
-
-Edit templates in:
-
-- `templates/message.html`
-- `templates/daily-agenda.html`
-- `templates/alert.html`
-
-Run locally from repo root:
+Validate add-on after start:
 
 ```bash
-cd addon/app
-npm install
-npm run dev
+curl "http://homeassistant.local:8099/health"
+
+curl -X POST "http://homeassistant.local:8099/print/text" \
+  -H "Content-Type: application/json" \
+  -d '{"headline":"HA Add-on Test","message":"Text from HA add-on","print":{"feedLines":3,"cut":true}}'
 ```
 
-Then open:
+Template override path:
 
-- `http://localhost:8099`
+- Default override file: `/config/receipt-printer/templates/receipt.html`
+- If that file exists, it is used before the bundled `addon/app/templates/receipt.html`.
+- You can also set `template_path` in add-on options to point to a different file.
 
-Notes:
+## Notes
 
-- `npm run dev` uses `TEMPLATE_DIR=../../templates`, so edits in root `templates/` are used directly.
-- Templates are loaded from disk per request, so refresh/preview immediately reflects changes.
-- Dev mode defaults to `TRANSPORT=noop` and `PRINT_ENABLED=false`.
-
-## Template zones and dynamic payloads
-
-Templates now use three zones:
-
-- `header`
-- `content`
-- `footer`
-
-Pass `include` booleans to show/hide zones/sections dynamically.
-
-Message example:
-
-```json
-{
-  "headline": "Home Note",
-  "message": "Trash day is tomorrow.",
-  "footer": "- Jesse",
-  "include": {
-    "header": true,
-    "content": true,
-    "footer": true
-  },
-  "theme": {
-    "header_size_px": 42,
-    "content_size_px": 30,
-    "footer_size_px": 18,
-    "padding_x_px": 18,
-    "padding_y_px": 24,
-    "divider_thickness_px": 4,
-    "line_height": 1.2
-  }
-}
-```
-
-Daily agenda example:
-
-```json
-{
-  "title": "Daily Agenda",
-  "subtitle": "Tuesday",
-  "weather": { "summary": "Cloudy", "temp": "64°F", "high": "68°F", "low": "54°F" },
-  "sleep": { "hours": "7.3" },
-  "events": [
-    { "time": "08:30", "title": "Standup", "location": "Office" },
-    { "time": "13:00", "title": "Review", "location": "Zoom" }
-  ],
-  "alerts": ["Litter box needs cleaning"],
-  "notes": "Buy coffee filters",
-  "include": {
-    "header": true,
-    "weather": true,
-    "sleep": true,
-    "events": true,
-    "alerts": true,
-    "notes": false,
-    "footer": true
-  }
-}
-```
-
-## Add-on options
-
-Configured in `addon/config.json`:
-
-- `printer_host`
-- `printer_port` (default `9100`)
-- `transport` (`raw_tcp`, `star_webprnt`, or `noop`)
-- `webprnt_scheme` (`http` or `https`, default `http`)
-- `webprnt_path` (default `/StarWebPRNT/SendMessage`)
-- `webprnt_device_id` (default `local_printer`)
-- `webprnt_paper_type` (`normal` default; supports black mark modes)
-- `webprnt_holdprint_timeout_ms` (default `10000`)
-- `print_enabled`
-- `paper_width_px` (default `576`)
-- `default_feed_lines`
-- `default_cut`
-- `default_threshold`
-- `queue_timeout_ms`
-- `queue_max_retries`
-- `template_dir` (default `/config/receipt-printer/templates`)
-- `agenda_include_header`
-- `agenda_include_weather`
-- `agenda_include_sleep`
-- `agenda_include_events`
-- `agenda_include_alerts`
-- `agenda_include_notes`
-- `agenda_include_footer`
-
-Agenda include toggles in add-on config become defaults used by `/render/daily-agenda` and `/print/daily-agenda` unless overridden in request payload.
-
-## Star mC-Print3 notes
-
-- mC-Print3/MCP31LB generally works best through `star_webprnt` transport for raster images.
-- Recommended settings for Star mC-Print3:
-  - `transport: star_webprnt`
-  - `printer_host: 10.0.0.25` (your reserved IP)
-  - `printer_port: 80` (`9100` is raw TCP and will print HTTP text/noise if used with webPRNT)
-  - `webprnt_scheme: http`
-  - `webprnt_path: /StarWebPRNT/SendMessage`
-  - `webprnt_device_id: local_printer`
-  - `webprnt_paper_type: normal`
-  - Request profile in this add-on forces `papertype='normal'` and `holdprint=invalid` to avoid paper-hold/label-mode surprises.
-
-If `raw_tcp` prints long random characters, the printer is receiving ESC/POS raster bytes in a different command mode. Switch to `star_webprnt`.
-
-## API endpoints
-
-- `GET /health`
-- `POST /render/message`
-- `POST /render/daily-agenda`
-- `POST /render/template`
-- `POST /print/message`
-- `POST /print/daily-agenda`
-- `POST /print/template`
-
-## HA automation wiring example
-
-```yaml
-rest_command:
-  receipt_print_daily_agenda:
-    url: "http://127.0.0.1:8099/print/daily-agenda"
-    method: POST
-    content_type: application/json
-    payload: >
-      {
-        "title": "Daily Agenda",
-        "subtitle": "{{ now().strftime('%A, %b %-d') }}",
-        "weather": {
-          "summary": "{{ states('weather.home') }}",
-          "temp": "{{ state_attr('weather.home', 'temperature') }}°"
-        },
-        "include": {
-          "weather": {{ is_state('input_boolean.receipt_include_weather', 'on') }},
-          "sleep": {{ is_state('input_boolean.receipt_include_sleep', 'on') }},
-          "events": {{ is_state('input_boolean.receipt_include_events', 'on') }},
-          "alerts": {{ is_state('input_boolean.receipt_include_alerts', 'on') }},
-          "notes": {{ is_state('input_boolean.receipt_include_notes', 'on') }}
-        }
-      }
-```
-
-If `127.0.0.1` does not resolve in your HA install, replace it with your HA host IP (for example `http://192.168.1.50:8099/...`).
-
-Optional helper booleans for dashboard toggles:
-
-```yaml
-input_boolean:
-  receipt_include_weather:
-    name: Receipt Include Weather
-    icon: mdi:weather-partly-cloudy
-  receipt_include_sleep:
-    name: Receipt Include Sleep
-    icon: mdi:sleep
-  receipt_include_events:
-    name: Receipt Include Events
-    icon: mdi:calendar
-  receipt_include_alerts:
-    name: Receipt Include Alerts
-    icon: mdi:alert
-  receipt_include_notes:
-    name: Receipt Include Notes
-    icon: mdi:note-text
-```
-
-## File layout
-
-```text
-receipt-printer/
-  repository.yaml
-  addon/
-    config.json
-    Dockerfile
-    run.sh
-    app/
-      server.js
-      config.js
-      renderer/
-      printer/
-      queue/
-      templates/
-      public/
-  templates/
-  assets/
-    fonts/
-    icons/
-  docs/
-    notes.md
-```
+- Homebrew installs Node itself, but project libraries are still installed with `npm install`.
+- `PRINTER_LANGUAGE` should be set per printer command language.
+- For Star mC-Print3 testing, use `star-prnt` and set `PRINTER_MODEL=star-mc-print3` (internally normalized to the closest supported model).
+- For Epson TM-m30III, use `esc-pos`.
+- Set `PRINTER_CUT_MODE=full` (recommended) or `partial`.

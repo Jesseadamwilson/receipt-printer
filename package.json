@@ -1,0 +1,26 @@
+{
+  "name": "ha-receipt-printer-spike",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Fresh Node receipt printer spike for Home Assistant workflows",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "check": "node --check src/config.js && node --check src/queue.js && node --check src/server.js && node --check src/index.js && node --check src/printer-client.js && node --check src/render-template.js && node --check scripts/test-text.js && node --check scripts/test-image.js && node --check scripts/render-template.js && node --check scripts/test-render-print.js",
+    "start": "node src/index.js",
+    "api": "node src/index.js",
+    "print:text": "node scripts/test-text.js",
+    "print:image": "node scripts/test-image.js",
+    "render": "node scripts/render-template.js",
+    "print:render": "node scripts/test-render-print.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright-core": "^1.52.0",
+    "@point-of-sale/receipt-printer-encoder": "^3.0.3",
+    "pngjs": "^7.0.0"
+  }
+}

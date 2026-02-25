@@ -1,4 +1,4 @@
 node_modules/
+.env
+output/*.png
 .DS_Store
-*.log
-addon/app/node_modules/

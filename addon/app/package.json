@@ -1,20 +1,20 @@
 {
-  "name": "receipt-printer-service",
-  "version": "0.3.3",
-  "description": "Render and print thermal receipts for Home Assistant",
-  "main": "server.js",
+  "name": "ha-receipt-printer-addon-app",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Home Assistant add-on app for receipt printing",
+  "main": "src/index.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node server.js",
-    "dev": "TEMPLATE_DIR=../../templates TRANSPORT=noop PRINT_ENABLED=false node --watch server.js",
-    "check": "node --check server.js"
+    "start": "node src/index.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "express": "^4.21.2",
-    "handlebars": "^4.7.8",
-    "playwright-core": "^1.51.1",
+    "dotenv": "^16.4.5",
+    "playwright-core": "^1.52.0",
+    "@point-of-sale/receipt-printer-encoder": "^3.0.3",
     "pngjs": "^7.0.0"
   }
 }
