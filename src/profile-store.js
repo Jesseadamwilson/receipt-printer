@@ -26,6 +26,14 @@ function asString(value, fallback = '') {
   return result;
 }
 
+function asRawString(value, fallback = '') {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  return String(value);
+}
+
 function asBoolean(value, fallback = false) {
   if (typeof value === 'boolean') {
     return value;
@@ -88,7 +96,8 @@ function sanitizeProfile(rawProfile, fallbackTemplate = 'daily_agenda') {
     name: asString(source.name, nameFallbackByTemplate[template]),
     template,
     enabled: asBoolean(source.enabled, true),
-    items
+    items,
+    messageBody: asRawString(source.messageBody, '')
   };
 }
 
@@ -179,7 +188,8 @@ function buildDefaultProfiles(config) {
         name: 'Message',
         template: 'message',
         enabled: true,
-        items: []
+        items: [],
+        messageBody: ''
       }
     ]
   };

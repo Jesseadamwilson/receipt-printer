@@ -7,71 +7,83 @@
   <link rel="stylesheet" href="settings.css">
 </head>
 <body>
-  <main class="app-shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Home Assistant Add-on</p>
-        <h1>Receipt Printer Profiles</h1>
-        <p class="subtle">
-          Configure print profiles, template type, and ordered entity-driven sections.
-        </p>
-      </div>
-      <div class="actions">
-        <button id="reload-btn" class="btn">Reload</button>
-        <button id="save-btn" class="btn btn-primary">Save Changes</button>
-      </div>
-    </header>
-
-    <section class="layout">
-      <aside class="panel profiles-panel">
-        <div class="panel-header">
-          <h2>Print Profiles</h2>
-          <button id="add-profile-btn" class="btn">Add Profile</button>
+  <main class="page">
+    <section class="ha-card page-card">
+      <header class="page-header">
+        <div>
+          <h1>Receipt Printer</h1>
+          <p class="secondary">Profile-driven print configuration for Home Assistant.</p>
         </div>
-        <div id="profile-list" class="profile-list"></div>
-      </aside>
-
-      <section class="panel editor-panel">
-        <div id="empty-state" class="empty-state">
-          <h3>No profile selected</h3>
-          <p>Create or select a profile to edit template type and data sources.</p>
+        <div class="header-actions">
+          <button id="reload-btn" class="btn">Reload</button>
+          <button id="save-btn" class="btn btn-primary">Save</button>
         </div>
+      </header>
 
-        <div id="editor" class="editor" hidden>
-          <div class="field-grid">
-            <label class="field">
-              <span>Name</span>
-              <input id="profile-name" type="text" placeholder="Daily Agenda">
-            </label>
-            <label class="field">
-              <span>Template</span>
-              <select id="profile-template"></select>
-            </label>
-            <label class="field field-checkbox">
-              <span>Enabled</span>
-              <input id="profile-enabled" type="checkbox">
-            </label>
+      <section class="layout">
+        <aside class="ha-card card sidebar">
+          <header class="card-header">
+            <h2>Profiles</h2>
+            <button id="add-profile-btn" class="btn">Add</button>
+          </header>
+          <div id="profile-list" class="profile-list"></div>
+        </aside>
+
+        <section class="ha-card card editor">
+          <div id="empty-state" class="empty-state">
+            Select or create a profile.
           </div>
 
-          <label class="field">
-            <span>Default Daily Agenda Profile</span>
-            <select id="default-daily-profile"></select>
-          </label>
+          <div id="editor" hidden>
+            <div class="field-grid">
+              <label class="field">
+                <span>Name</span>
+                <input id="profile-name" type="text" placeholder="Daily Agenda">
+              </label>
+              <label class="field">
+                <span>Template</span>
+                <select id="profile-template"></select>
+              </label>
+              <label class="field field-checkbox">
+                <span>Enabled</span>
+                <input id="profile-enabled" type="checkbox">
+              </label>
+            </div>
 
-          <div class="panel-note">
-            <strong>Note:</strong> data-source items are currently applied to the
-            <code>daily_agenda</code> template path.
-          </div>
+            <label class="field" id="default-daily-field">
+              <span>Default Daily Agenda Profile</span>
+              <select id="default-daily-profile"></select>
+            </label>
 
-          <div class="items-header">
-            <h3>Data Sources / Sections</h3>
-            <button id="add-item-btn" class="btn">Add Item</button>
+            <section id="agenda-editor" class="section-block" hidden>
+              <div class="section-header">
+                <h3>Agenda Data Sources</h3>
+                <button id="add-item-btn" class="btn">Add Item</button>
+              </div>
+              <p class="secondary">
+                Use plain Home Assistant entity IDs. Drag rows to control display order.
+              </p>
+              <div id="item-list" class="item-list"></div>
+            </section>
+
+            <section id="message-editor" class="section-block" hidden>
+              <h3>Message Content</h3>
+              <p class="secondary">
+                Use this freeform text for message prints. Emojis are supported.
+              </p>
+              <label class="field">
+                <span>Message Body</span>
+                <textarea id="message-body" rows="12" placeholder="Type your message here..."></textarea>
+              </label>
+            </section>
+
+            <section id="template-editor" class="section-block" hidden>
+              <p class="secondary">
+                This template type currently has no additional profile fields.
+              </p>
+            </section>
           </div>
-          <p class="subtle items-help">
-            Drag rows to reorder. Type controls rendering behavior; entity controls data source.
-          </p>
-          <div id="item-list" class="item-list"></div>
-        </div>
+        </section>
       </section>
     </section>
   </main>

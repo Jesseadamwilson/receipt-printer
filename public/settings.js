@@ -12,9 +12,7 @@
     },
     selectedProfileId: '',
     dirty: false,
-    draggingItemId: '',
-    entityCache: new Map(),
-    entityTimers: new Map()
+    draggingItemId: ''
   };
 
   const ui = {};
@@ -30,6 +28,14 @@
     }
 
     return result;
+  }
+
+  function asRawString(value, fallback = '') {
+    if (value === undefined || value === null) {
+      return fallback;
+    }
+
+    return String(value);
   }
 
   function asBoolean(value, fallback = false) {
@@ -140,8 +146,17 @@
       name: asString(source.name, 'New Profile'),
       template,
       enabled: asBoolean(source.enabled, true),
-      items: Array.isArray(source.items) ? source.items.map(sanitizeItem) : []
+      items: Array.isArray(source.items) ? source.items.map(sanitizeItem) : [],
+      messageBody: asRawString(source.messageBody, '')
     };
+  }
+
+  function findProfileById(profileId) {
+    return state.store.profiles.find((profile) => profile.id === profileId) || null;
+  }
+
+  function getSelectedProfile() {
+    return findProfileById(state.selectedProfileId);
   }
 
   function ensureStoreIntegrity() {
@@ -152,14 +167,13 @@
     state.store.profiles = state.store.profiles.map(sanitizeProfile);
 
     if (state.store.profiles.length === 0) {
-      const fallback = {
+      state.store.profiles.push(sanitizeProfile({
         id: 'daily_agenda_main',
         name: 'Daily Agenda',
         template: 'daily_agenda',
         enabled: true,
         items: []
-      };
-      state.store.profiles.push(sanitizeProfile(fallback));
+      }));
     }
 
     if (!state.selectedProfileId || !findProfileById(state.selectedProfileId)) {
@@ -173,18 +187,10 @@
     }
 
     const currentDefault = asString(state.store.defaultDailyAgendaProfileId, '');
-    const isValid = dailyProfiles.some((profile) => profile.id === currentDefault);
-    if (!isValid) {
+    const exists = dailyProfiles.some((profile) => profile.id === currentDefault);
+    if (!exists) {
       state.store.defaultDailyAgendaProfileId = dailyProfiles[0].id;
     }
-  }
-
-  function findProfileById(profileId) {
-    return state.store.profiles.find((profile) => profile.id === profileId) || null;
-  }
-
-  function getSelectedProfile() {
-    return findProfileById(state.selectedProfileId);
   }
 
   function createEmptyProfile() {
@@ -194,7 +200,8 @@
       name: 'New Profile',
       template: fallbackTemplate,
       enabled: true,
-      items: []
+      items: [],
+      messageBody: ''
     };
   }
 
@@ -255,18 +262,14 @@
         const selected = type === item.type ? ' selected' : '';
         return `<option value="${escapeHtml(type)}"${selected}>${escapeHtml(type)}</option>`;
       }).join('');
-      const listId = `entities-${item.id}`;
       const checked = item.enabled ? ' checked' : '';
 
       return [
         `<div class="item-row" draggable="true" data-item-id="${escapeHtml(item.id)}">`,
-        `<button class="drag-handle" title="Drag to reorder" type="button">::</button>`,
+        '<button class="drag-handle" title="Drag to reorder" type="button">::</button>',
         `<select data-field="type" data-item-id="${escapeHtml(item.id)}">${typeOptions}</select>`,
-        `<input type="text" data-field="entity" data-item-id="${escapeHtml(item.id)}" `,
-        `value="${escapeHtml(item.entity)}" list="${escapeHtml(listId)}" placeholder="sensor.example_entity">`,
-        `<datalist id="${escapeHtml(listId)}"></datalist>`,
-        `<input type="text" data-field="label" data-item-id="${escapeHtml(item.id)}" `,
-        `value="${escapeHtml(item.label)}" placeholder="Optional label override">`,
+        `<input type="text" data-field="entity" data-item-id="${escapeHtml(item.id)}" value="${escapeHtml(item.entity)}" placeholder="entity_id (example: weather.ksgf)">`,
+        `<input type="text" data-field="label" data-item-id="${escapeHtml(item.id)}" value="${escapeHtml(item.label)}" placeholder="Optional label">`,
         '<label class="item-enabled">',
         `<input type="checkbox" data-field="enabled" data-item-id="${escapeHtml(item.id)}"${checked}>`,
         'Use',
@@ -289,12 +292,28 @@
     ui.emptyState.hidden = true;
 
     ui.profileName.value = profile.name;
+    ui.profileEnabled.checked = Boolean(profile.enabled);
     ui.profileTemplate.innerHTML = state.templates.map((template) => {
       const selected = template === profile.template ? ' selected' : '';
       return `<option value="${escapeHtml(template)}"${selected}>${escapeHtml(template)}</option>`;
     }).join('');
-    ui.profileEnabled.checked = Boolean(profile.enabled);
-    renderItemRows(profile);
+
+    const isAgendaProfile = profile.template === 'daily_agenda';
+    const isMessageProfile = profile.template === 'message';
+
+    ui.agendaEditor.hidden = !isAgendaProfile;
+    ui.messageEditor.hidden = !isMessageProfile;
+    ui.templateEditor.hidden = isAgendaProfile || isMessageProfile;
+
+    if (isAgendaProfile) {
+      renderItemRows(profile);
+    } else {
+      ui.itemList.innerHTML = '';
+    }
+
+    if (isMessageProfile) {
+      ui.messageBody.value = asRawString(profile.messageBody, '');
+    }
   }
 
   function renderAll() {
@@ -316,69 +335,6 @@
     const [moved] = reordered.splice(sourceIndex, 1);
     reordered.splice(targetIndex, 0, moved);
     return reordered;
-  }
-
-  async function loadEntitySuggestions(type, query, limit = 80) {
-    const normalizedType = asString(type, '').toLowerCase();
-    const normalizedQuery = asString(query, '').toLowerCase();
-    const cacheKey = `${normalizedType}|${normalizedQuery}|${limit}`;
-    if (state.entityCache.has(cacheKey)) {
-      return state.entityCache.get(cacheKey);
-    }
-
-    const url = new URL(buildApiUrl('/api/entities'));
-    if (normalizedType) {
-      url.searchParams.set('type', normalizedType);
-    }
-    if (normalizedQuery) {
-      url.searchParams.set('q', normalizedQuery);
-    }
-    url.searchParams.set('limit', String(limit));
-
-    const payload = await fetchJson(url.toString());
-    const entities = Array.isArray(payload.entities) ? payload.entities : [];
-    state.entityCache.set(cacheKey, entities);
-    return entities;
-  }
-
-  function fillEntityDatalist(datalist, entities) {
-    datalist.innerHTML = entities.map((entity) => {
-      const name = asString(entity.friendly_name, entity.entity_id);
-      return `<option value="${escapeHtml(entity.entity_id)}">${escapeHtml(name)}</option>`;
-    }).join('');
-  }
-
-  function scheduleEntityLookup(input, itemType) {
-    const itemId = asString(input.dataset.itemId, '');
-    if (!itemId) {
-      return;
-    }
-
-    const pending = state.entityTimers.get(itemId);
-    if (pending) {
-      clearTimeout(pending);
-    }
-
-    const timer = setTimeout(async () => {
-      const datalistId = asString(input.getAttribute('list'), '');
-      if (!datalistId) {
-        return;
-      }
-
-      const datalist = document.getElementById(datalistId);
-      if (!datalist) {
-        return;
-      }
-
-      try {
-        const entities = await loadEntitySuggestions(itemType, input.value, 80);
-        fillEntityDatalist(datalist, entities);
-      } catch (error) {
-        setStatus(`Entity search failed: ${error.message}`, 'warning');
-      }
-    }, 200);
-
-    state.entityTimers.set(itemId, timer);
   }
 
   async function refreshProfiles() {
@@ -426,6 +382,7 @@
       defaultDailyAgendaProfileId: asString(payload.defaultDailyAgendaProfileId, ''),
       profiles: Array.isArray(payload.profiles) ? payload.profiles : []
     };
+
     setDirty(false);
     setStatus('Profiles saved.', 'success');
     renderAll();
@@ -488,7 +445,9 @@
 
       if (previousTemplate === 'daily_agenda' && profile.template !== 'daily_agenda') {
         if (state.store.defaultDailyAgendaProfileId === profile.id) {
-          const nextDaily = state.store.profiles.find((entry) => entry.template === 'daily_agenda' && entry.id !== profile.id);
+          const nextDaily = state.store.profiles.find((entry) => {
+            return entry.template === 'daily_agenda' && entry.id !== profile.id;
+          });
           state.store.defaultDailyAgendaProfileId = nextDaily ? nextDaily.id : '';
         }
       }
@@ -507,6 +466,16 @@
       setDirty(true);
       renderProfileList();
     }
+  }
+
+  function onMessageBodyInput() {
+    const profile = getSelectedProfile();
+    if (!profile || profile.template !== 'message') {
+      return;
+    }
+
+    profile.messageBody = asRawString(ui.messageBody.value, '');
+    setDirty(true);
   }
 
   function onAddProfile() {
@@ -534,6 +503,11 @@
       return;
     }
 
+    if (profile.template !== 'daily_agenda') {
+      setStatus('Data-source items are only available for daily_agenda profiles.', 'warning');
+      return;
+    }
+
     profile.items.push(createEmptyItem());
     setDirty(true);
     renderItemRows(profile);
@@ -541,7 +515,7 @@
 
   function updateItemField(itemId, fieldName, fieldValue) {
     const profile = getSelectedProfile();
-    if (!profile) {
+    if (!profile || profile.template !== 'daily_agenda') {
       return;
     }
 
@@ -572,16 +546,12 @@
 
   function onItemListClick(event) {
     const actionEl = event.target.closest('[data-action]');
-    if (!actionEl) {
-      return;
-    }
-
-    if (actionEl.dataset.action !== 'remove-item') {
+    if (!actionEl || actionEl.dataset.action !== 'remove-item') {
       return;
     }
 
     const profile = getSelectedProfile();
-    if (!profile) {
+    if (!profile || profile.template !== 'daily_agenda') {
       return;
     }
 
@@ -615,34 +585,7 @@
     if (field === 'type') {
       const profile = getSelectedProfile();
       renderItemRows(profile);
-      return;
     }
-
-    if (field === 'entity' && target instanceof HTMLInputElement) {
-      const profile = getSelectedProfile();
-      const item = profile && profile.items.find((entry) => entry.id === itemId);
-      scheduleEntityLookup(target, item ? item.type : '');
-    }
-  }
-
-  function onItemListFocusIn(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLInputElement)) {
-      return;
-    }
-
-    if (asString(target.dataset.field, '') !== 'entity') {
-      return;
-    }
-
-    const profile = getSelectedProfile();
-    if (!profile) {
-      return;
-    }
-
-    const itemId = asString(target.dataset.itemId, '');
-    const item = profile.items.find((entry) => entry.id === itemId);
-    scheduleEntityLookup(target, item ? item.type : '');
   }
 
   function clearDragStyles() {
@@ -684,6 +627,7 @@
     if (!row) {
       return;
     }
+
     row.classList.remove('is-drop-target');
   }
 
@@ -694,9 +638,14 @@
     }
 
     event.preventDefault();
-    const targetItemId = asString(row.dataset.itemId, '');
     const profile = getSelectedProfile();
-    if (!profile || !targetItemId || targetItemId === state.draggingItemId) {
+    if (!profile || profile.template !== 'daily_agenda') {
+      clearDragStyles();
+      return;
+    }
+
+    const targetItemId = asString(row.dataset.itemId, '');
+    if (!targetItemId || targetItemId === state.draggingItemId) {
       clearDragStyles();
       return;
     }
@@ -736,11 +685,11 @@
     ui.profileEnabled.addEventListener('change', onProfileFieldChanged);
     ui.defaultDailyProfile.addEventListener('change', onDefaultDailyProfileChanged);
     ui.addItemBtn.addEventListener('click', onAddItem);
+    ui.messageBody.addEventListener('input', onMessageBodyInput);
 
     ui.itemList.addEventListener('click', onItemListClick);
     ui.itemList.addEventListener('input', onItemListInput);
     ui.itemList.addEventListener('change', onItemListInput);
-    ui.itemList.addEventListener('focusin', onItemListFocusIn);
 
     ui.itemList.addEventListener('dragstart', onItemDragStart);
     ui.itemList.addEventListener('dragover', onItemDragOver);
@@ -760,7 +709,12 @@
     ui.profileName = document.getElementById('profile-name');
     ui.profileTemplate = document.getElementById('profile-template');
     ui.profileEnabled = document.getElementById('profile-enabled');
+    ui.defaultDailyField = document.getElementById('default-daily-field');
     ui.defaultDailyProfile = document.getElementById('default-daily-profile');
+    ui.agendaEditor = document.getElementById('agenda-editor');
+    ui.messageEditor = document.getElementById('message-editor');
+    ui.templateEditor = document.getElementById('template-editor');
+    ui.messageBody = document.getElementById('message-body');
     ui.addItemBtn = document.getElementById('add-item-btn');
     ui.itemList = document.getElementById('item-list');
   }

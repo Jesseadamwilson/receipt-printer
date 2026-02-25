@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.6.0`.
+Current package/add-on version: `0.6.1`.
 
 ## Win Sequence
 
@@ -111,7 +111,6 @@ Profiles API and UI:
 - `GET /ui` (or `/`) -> profile editor
 - `GET /api/profiles` -> current profile store
 - `PUT /api/profiles` -> save profile store
-- `GET /api/entities?type=battery&q=iphone` -> searchable HA entity list
 
 Example: print daily agenda with a selected profile:
 
@@ -165,12 +164,13 @@ Daily agenda source options (configured in add-on settings):
 - `agenda_section_order` (example: `weather,events,battery,alerts,notes`)
 - `agenda_time_window_hours` (calendar look-ahead window)
 
-Profile editor (new in v0.6.0):
+Profile editor (v0.6.x):
 
 - Open add-on ingress and go to `/ui` to manage profiles.
 - Add/remove profiles and set each profile template (`daily_agenda`, `message`, `template`).
-- Add/remove typed items (`weather`, `sleep`, `calendar`, `battery`, `alert`, `notes`).
-- Search/select entities from your HA state list in each row.
+- `daily_agenda`: add/remove typed items (`weather`, `sleep`, `calendar`, `battery`, `alert`, `notes`) and reorder with drag/drop.
+- `daily_agenda` item entity values are plain Home Assistant entity ID text fields.
+- `message`: freeform textarea content (emoji-safe text).
 - Drag/drop rows to control render order.
 - Set default daily agenda profile used when `profileId` is omitted on `/print/daily-agenda`.
 
