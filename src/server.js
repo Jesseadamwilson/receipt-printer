@@ -87,6 +87,14 @@ function asString(value, fallback = '') {
   return result;
 }
 
+function asRawString(value, fallback = '') {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  return String(value);
+}
+
 function asBoolean(value, fallback = false) {
   if (typeof value === 'boolean') {
     return value;
@@ -153,6 +161,25 @@ function normalizeTextJob(body, config) {
     lines: normalizeLines(body.lines, body.message),
     footer: asString(body.footer, new Date().toLocaleString()),
     print: normalizePrintOptions(body.print, {
+      feedLines: 3,
+      cut: true,
+      cutMode: config.printerCutMode
+    })
+  };
+}
+
+function normalizeMessageJob(body, config) {
+  const payload = body && typeof body === 'object' ? body : {};
+  return {
+    profileId: asString(payload.profileId, ''),
+    headline: asString(payload.headline, ''),
+    lines: Array.isArray(payload.lines)
+      ? payload.lines.map((line) => asRawString(line, ''))
+      : [],
+    hasMessageOverride: Object.prototype.hasOwnProperty.call(payload, 'message'),
+    message: asRawString(payload.message, ''),
+    footer: asString(payload.footer, ''),
+    print: normalizePrintOptions(payload.print, {
       feedLines: 3,
       cut: true,
       cutMode: config.printerCutMode
@@ -393,6 +420,13 @@ function createReceiptServer(options) {
       if (req.method === 'POST' && pathname === '/print/text') {
         const body = await parseJsonBody(req);
         const job = await queue.enqueue('text', normalizeTextJob(body, config));
+        jsonResponse(res, 200, { ok: true, job });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/print/message') {
+        const body = await parseJsonBody(req);
+        const job = await queue.enqueue('message', normalizeMessageJob(body, config));
         jsonResponse(res, 200, { ok: true, job });
         return;
       }

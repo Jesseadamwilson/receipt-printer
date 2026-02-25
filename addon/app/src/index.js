@@ -30,6 +30,23 @@ function asString(value, fallback = '') {
   return result;
 }
 
+function asRawString(value, fallback = '') {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  return String(value);
+}
+
+function splitMessageLines(value) {
+  const raw = asRawString(value, '');
+  if (!raw) {
+    return [];
+  }
+
+  return raw.replace(/\r\n/g, '\n').split('\n');
+}
+
 function readPackageMetadata() {
   try {
     const packagePath = path.resolve(process.cwd(), 'package.json');
@@ -87,6 +104,62 @@ async function runTextJob(config, payload) {
     payloadBytes: encoded.length,
     print,
     transport
+  };
+}
+
+async function runMessageJob(config, deps, payload) {
+  const profileStore = deps && deps.profileStore ? deps.profileStore : null;
+  const requestedProfileId = asString(payload && payload.profileId, '');
+  const requestedProfile = profileStore && requestedProfileId
+    ? profileStore.getProfileById(requestedProfileId)
+    : null;
+
+  const fallbackMessageProfile = profileStore
+    ? profileStore.getDefaultMessageProfile()
+    : null;
+
+  const selectedProfile = requestedProfile && requestedProfile.template === 'message'
+    ? requestedProfile
+    : (fallbackMessageProfile && fallbackMessageProfile.template === 'message'
+      ? fallbackMessageProfile
+      : null);
+
+  const profileMessage = selectedProfile
+    ? asRawString(selectedProfile.messageBody, '')
+    : '';
+  const messageText = payload && payload.hasMessageOverride
+    ? asRawString(payload.message, '')
+    : profileMessage;
+
+  const providedLines = Array.isArray(payload && payload.lines)
+    ? payload.lines.map((line) => asRawString(line, ''))
+    : [];
+  const lines = providedLines.length > 0
+    ? providedLines
+    : splitMessageLines(messageText);
+
+  const result = await runTextJob(config, {
+    headline: asString(payload && payload.headline, selectedProfile ? selectedProfile.name : 'Message'),
+    lines,
+    footer: asString(payload && payload.footer, new Date().toLocaleString()),
+    print: payload && payload.print
+  });
+
+  return {
+    ...result,
+    mode: 'message',
+    profile: selectedProfile
+      ? {
+        id: selectedProfile.id,
+        name: selectedProfile.name,
+        template: selectedProfile.template
+      }
+      : null,
+    source: {
+      usedProfileBody: !payload.hasMessageOverride && providedLines.length === 0,
+      usedPayloadMessage: payload.hasMessageOverride,
+      usedPayloadLines: providedLines.length > 0
+    }
   };
 }
 
@@ -192,6 +265,8 @@ async function runPrintJob(config, deps, job) {
   switch (job.type) {
     case 'text':
       return runTextJob(config, job.payload);
+    case 'message':
+      return runMessageJob(config, deps, job.payload);
     case 'image':
       return runImageJob(config, job.payload);
     case 'render':

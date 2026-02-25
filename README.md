@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.6.2`.
+Current package/add-on version: `0.6.3`.
 
 ## Win Sequence
 
@@ -46,6 +46,17 @@ curl -X POST "http://localhost:8099/print/text" \
   -d '{
     "headline": "API Text Test",
     "message": "Line 1\nLine 2",
+    "print": { "feedLines": 3, "cut": true }
+  }'
+```
+
+Print message from message profile (or payload override):
+
+```bash
+curl -X POST "http://localhost:8099/print/message" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "profileId": "message_main",
     "print": { "feedLines": 3, "cut": true }
   }'
 ```

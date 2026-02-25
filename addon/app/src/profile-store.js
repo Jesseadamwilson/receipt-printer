@@ -347,6 +347,14 @@ function createProfileStore(config) {
       }
 
       return store.profiles[0] || null;
+    },
+    getDefaultMessageProfile() {
+      const firstMessage = store.profiles.find((profile) => profile.template === 'message');
+      if (firstMessage) {
+        return firstMessage;
+      }
+
+      return store.profiles[0] || null;
     }
   };
 }
