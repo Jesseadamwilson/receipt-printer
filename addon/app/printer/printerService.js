@@ -193,17 +193,17 @@ class PrinterService {
       const chunk = rasterBytes.subarray(startIndex, endIndex);
       const base64 = chunk.toString('base64');
 
-      const parts = ['<root>'];
-      parts.push(`<bitImage width='${width}' height='${chunkHeight}'>${base64}</bitImage>`);
+      const parts = ["<root checkedblock='true'>"];
+      parts.push(`<bitimage width='${width}' height='${chunkHeight}'>${base64}</bitimage>`);
 
       const isLastChunk = startRow + chunkHeight >= height;
       if (isLastChunk) {
         if (feedLines > 0) {
-          parts.push(`<feed line='${feedLines}'/>`);
+          parts.push(`<feed line='${feedLines}' unit='0'/>`);
         }
 
         if (cut) {
-          parts.push("<cutPaper feed='false' type='partial'/>");
+          parts.push("<cutpaper feed='false' type='partial'/>");
         }
       }
 

@@ -11,6 +11,12 @@ class StarWebPrntTransport {
       throw new Error('Printer host is required for star_webprnt transport');
     }
 
+    if (this.port === 9100 || this.port === 9101) {
+      throw new Error(
+        `star_webprnt transport cannot use raw print port ${this.port}. Set printer_port to 80 (http) or 443 (https).`
+      );
+    }
+
     if (!requestXml || typeof requestXml !== 'string') {
       throw new Error('StarWebPRNT request XML must be a string');
     }
@@ -51,17 +57,19 @@ class StarWebPrntTransport {
       throw new Error(`StarWebPRNT HTTP ${response.status}: ${compact(responseText)}`);
     }
 
-    const success = readXmlTag(responseText, 'success');
+    const inner = decodeXmlEntities(readXmlTag(responseText, 'Response')) || responseText;
+
+    const success = readXmlTag(inner, 'success');
     if (success && success.toLowerCase() !== 'true') {
-      const code = readXmlTag(responseText, 'code') || 'unknown';
-      throw new Error(`StarWebPRNT failure code ${code}: ${compact(responseText)}`);
+      const code = readXmlTag(inner, 'code') || 'unknown';
+      throw new Error(`StarWebPRNT failure code ${code}: ${compact(inner)}`);
     }
 
     return {
       bytesSent: body.length,
       httpStatus: response.status,
       responseBytes: Buffer.byteLength(responseText),
-      responsePreview: compact(responseText)
+      responsePreview: compact(inner)
     };
   }
 }
@@ -74,6 +82,19 @@ function readXmlTag(xml, tagName) {
 
 function compact(value) {
   return String(value).replace(/\s+/g, ' ').trim().slice(0, 300);
+}
+
+function decodeXmlEntities(value) {
+  if (!value) {
+    return '';
+  }
+
+  return String(value)
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
 }
 
 module.exports = StarWebPrntTransport;

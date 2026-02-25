@@ -141,7 +141,7 @@ Agenda include toggles in add-on config become defaults used by `/render/daily-a
 - Recommended settings for Star mC-Print3:
   - `transport: star_webprnt`
   - `printer_host: 10.0.0.25` (your reserved IP)
-  - `printer_port: 80`
+  - `printer_port: 80` (`9100` is raw TCP and will print HTTP text/noise if used with webPRNT)
   - `webprnt_scheme: http`
   - `webprnt_path: /StarWebPRNT/SendMessage`
 
