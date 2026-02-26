@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright-core');
 
 function asString(value, fallback = '') {
@@ -105,6 +106,22 @@ function injectCustomCss(templateHtml, customCss) {
   return `${block}\n${templateHtml}`;
 }
 
+function injectTemplateBaseHref(templateHtml, templatePath) {
+  if (templateHtml.includes('<base ')) {
+    return templateHtml;
+  }
+
+  const templateDir = path.dirname(templatePath);
+  const baseHref = pathToFileURL(`${templateDir}${path.sep}`).href;
+  const baseTag = `<base href="${baseHref}">`;
+
+  if (templateHtml.includes('<head>')) {
+    return templateHtml.replace('<head>', `<head>\n    ${baseTag}`);
+  }
+
+  return `${baseTag}\n${templateHtml}`;
+}
+
 function renderTemplateString(templateHtml, data, customCss = '') {
   const map = {
     headline: escapeHtml(data.headline || ''),
@@ -128,7 +145,8 @@ async function renderTemplateToPng(config, data, options = {}) {
   const templatePath = resolveTemplatePath(config);
   const templateHtml = fs.readFileSync(templatePath, 'utf8');
   const { css: customCss } = readCustomCss(config);
-  const html = renderTemplateString(templateHtml, data, customCss);
+  const htmlWithBase = injectTemplateBaseHref(templateHtml, templatePath);
+  const html = renderTemplateString(htmlWithBase, data, customCss);
 
   if (!config.chromiumPath) {
     throw new Error('Chromium path not found. Set CHROMIUM_PATH in .env');
