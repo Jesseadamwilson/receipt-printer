@@ -20,22 +20,26 @@
       }
       .header {
         border-bottom: 2px solid #111;
-        padding-bottom: 12px;
+        padding-bottom: 10px;
         margin-bottom: 14px;
       }
-      .header h1 {
+      .headline {
         margin: 0;
-        font-size: 38px;
-        letter-spacing: 1px;
+        font-size: 34px;
+        letter-spacing: 0.6px;
         text-transform: uppercase;
+      }
+      .meta {
+        margin: 6px 0 0;
+        font-size: 20px;
       }
       .content {
         min-height: 180px;
       }
-      .line {
-        font-size: 26px;
-        line-height: 1.3;
+      .message-lines .message-line {
         margin: 0 0 10px;
+        font-size: 28px;
+        line-height: 1.3;
       }
       .footer {
         border-top: 2px solid #111;
@@ -47,13 +51,17 @@
     {{custom_css_block}}
   </head>
   <body>
-    <section class="ticket">
-      <img src="assets/logo.svg">
-      {{header_html}}
+    <section class="ticket ticket--message">
+      <header class="header">
+        <h1 class="headline">{{headline}}</h1>
+        <p class="meta">{{day_of_week}}, {{date}} {{time}}</p>
+      </header>
       <main class="content">
-        {{content_html}}
+        <section class="message-lines">
+          {{{message_lines_html}}}
+        </section>
       </main>
-      {{footer_html}}
+      <footer class="footer">Printed: {{printed_at}}</footer>
     </section>
   </body>
 </html>

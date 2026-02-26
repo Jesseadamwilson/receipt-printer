@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      :root {
+        --paper-width: 576px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        width: var(--paper-width);
+        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #111;
+        background: #fff;
+      }
+      .ticket {
+        padding: 20px 22px 18px;
+      }
+      .header {
+        border-bottom: 2px solid #111;
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+      }
+      .title {
+        margin: 0;
+        font-size: 34px;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+      }
+      .subtitle {
+        margin: 6px 0 0;
+        font-size: 24px;
+      }
+      .meta {
+        margin: 4px 0 0;
+        font-size: 18px;
+      }
+      .section {
+        margin: 14px 0 0;
+      }
+      .section-title {
+        margin: 0 0 6px;
+        font-size: 24px;
+        letter-spacing: 0.4px;
+        text-transform: uppercase;
+      }
+      .value {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.25;
+      }
+      .events-list,
+      .battery-list,
+      .alerts-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .event-item,
+      .battery-item,
+      .alert-item,
+      .notes-line {
+        margin: 0 0 8px;
+        font-size: 24px;
+        line-height: 1.25;
+      }
+      .footer {
+        border-top: 2px solid #111;
+        margin-top: 16px;
+        padding-top: 10px;
+        font-size: 20px;
+      }
+    </style>
+    {{custom_css_block}}
+  </head>
+  <body>
+    <section class="ticket ticket--daily-agenda">
+      <header class="header">
+        <h1 class="title">{{title}}</h1>
+        <p class="subtitle">{{subtitle}}</p>
+        <p class="meta">{{day_of_week}}, {{date}}</p>
+      </header>
+
+      <section class="section section--weather">
+        <h2 class="section-title">Weather</h2>
+        <p class="value">{{weather_summary}} {{current_temp}}</p>
+      </section>
+
+      <section class="section section--sleep">
+        <h2 class="section-title">Sleep</h2>
+        <p class="value">{{hours_of_sleep}}</p>
+      </section>
+
+      <section class="section section--events">
+        <h2 class="section-title">Events</h2>
+        {{{todays_calendar_events_html}}}
+      </section>
+
+      <section class="section section--battery">
+        <h2 class="section-title">Battery</h2>
+        {{{battery_levels_html}}}
+      </section>
+
+      <section class="section section--alerts">
+        <h2 class="section-title">Alerts</h2>
+        {{{alerts_html}}}
+      </section>
+
+      <section class="section section--notes">
+        <h2 class="section-title">Notes</h2>
+        {{{notes_html}}}
+      </section>
+
+      <footer class="footer">Printed: {{printed_at}}</footer>
+    </section>
+  </body>
+</html>

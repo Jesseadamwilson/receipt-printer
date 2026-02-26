@@ -212,9 +212,24 @@ curl -X POST "http://homeassistant.local:8099/print/text" \
 
 Template override path:
 
-- Default override file: `/config/receipt-printer/templates/receipt.html`
-- If that file exists, it is used before the bundled `addon/app/templates/receipt.html`.
-- You can also set `template_path` in add-on options to point to a different file.
+- `receipt` fallback template: `/config/receipt-printer/templates/receipt.html`
+- `message` template: `/config/receipt-printer/templates/message.html`
+- `daily agenda` template: `/config/receipt-printer/templates/daily-agenda.html`
+- Add-on options can override each path:
+- `template_path`
+- `template_message_path`
+- `template_daily_agenda_path`
+
+Template tokens:
+
+- You can place tokens directly in template HTML, for example:
+- `{{date}}`
+- `{{current_temp}}`
+- `{{hours_of_sleep}}`
+- `{{todays_calendar_events}}`
+- `{{{todays_calendar_events_html}}}`
+- Double braces escape HTML (`{{token}}`).
+- Triple braces render raw HTML (`{{{token}}}`), useful for list placeholders ending in `_html`.
 
 ## Home Assistant Wiring (Step 4)
 

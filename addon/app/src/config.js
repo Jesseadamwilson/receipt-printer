@@ -93,8 +93,44 @@ function resolveTemplatePaths() {
   return Array.from(new Set(normalized));
 }
 
+function resolveNamedTemplatePaths(envName, defaultFiles, fallbackPaths = []) {
+  const configured = parseStringEnv(envName, '');
+  const candidates = [];
+
+  if (configured) {
+    candidates.push(configured);
+  }
+
+  for (const fileName of defaultFiles) {
+    candidates.push(`/config/receipt-printer/templates/${fileName}`);
+    candidates.push(path.resolve(process.cwd(), 'templates', fileName));
+  }
+
+  for (const fallback of fallbackPaths) {
+    candidates.push(fallback);
+  }
+
+  const normalized = candidates.map((candidate) => {
+    return path.isAbsolute(candidate)
+      ? candidate
+      : path.resolve(process.cwd(), candidate);
+  });
+
+  return Array.from(new Set(normalized));
+}
+
 function loadConfig() {
   const templatePaths = resolveTemplatePaths();
+  const messageTemplatePaths = resolveNamedTemplatePaths(
+    'TEMPLATE_MESSAGE_PATH',
+    ['message.html', 'receipt.html'],
+    templatePaths
+  );
+  const dailyAgendaTemplatePaths = resolveNamedTemplatePaths(
+    'TEMPLATE_DAILY_AGENDA_PATH',
+    ['daily-agenda.html', 'receipt.html'],
+    templatePaths
+  );
 
   return {
     apiHost: parseStringEnv('API_HOST', '0.0.0.0'),
@@ -143,7 +179,9 @@ function loadConfig() {
     publicDir: path.resolve(process.cwd(), 'public'),
     outputDir: path.resolve(process.cwd(), 'output'),
     templatePath: templatePaths[0],
-    templatePaths
+    templatePaths,
+    messageTemplatePaths,
+    dailyAgendaTemplatePaths
   };
 }
 

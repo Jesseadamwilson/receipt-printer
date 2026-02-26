@@ -42,6 +42,118 @@ function asRawString(value, fallback = '') {
   return String(value);
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function buildParagraphHtml(lines, lineClass = 'line') {
+  const source = Array.isArray(lines) ? lines : [];
+  return source
+    .map((line) => asRawString(line, ''))
+    .map((line) => `<p class="${lineClass}">${escapeHtml(line)}</p>`)
+    .join('\n');
+}
+
+function buildListHtml(items, listClass, itemClass) {
+  const source = Array.isArray(items)
+    ? items.map((item) => asRawString(item, '')).filter(Boolean)
+    : [];
+  if (source.length === 0) {
+    return '';
+  }
+
+  const listItems = source
+    .map((item) => `<li class="${itemClass}">${escapeHtml(item)}</li>`)
+    .join('');
+  return `<ul class="${listClass}">${listItems}</ul>`;
+}
+
+function buildDateTokens(referenceDate = new Date()) {
+  const value = referenceDate instanceof Date ? referenceDate : new Date();
+  const date = Number.isNaN(value.getTime()) ? new Date() : value;
+
+  return {
+    date: date.toLocaleDateString(),
+    date_iso: date.toISOString().slice(0, 10),
+    day_of_week: date.toLocaleDateString(undefined, { weekday: 'long' }),
+    month_day: date.toLocaleDateString(undefined, { month: 'long', day: 'numeric' }),
+    time: date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+  };
+}
+
+function formatAgendaEventLine(event) {
+  if (!event || typeof event !== 'object') {
+    return '';
+  }
+
+  const time = asString(event.time, '');
+  const title = asString(event.title, '');
+  const location = asString(event.location, '');
+  const left = [time, title].filter(Boolean).join(' ');
+  if (!left && !location) {
+    return '';
+  }
+  if (!location) {
+    return left;
+  }
+  if (!left) {
+    return `@ ${location}`;
+  }
+
+  return `${left} @ ${location}`;
+}
+
+function normalizeBatteryLevel(value) {
+  const raw = asString(value, '');
+  if (!raw) {
+    return '';
+  }
+
+  if (raw.endsWith('%')) {
+    return raw;
+  }
+
+  const numeric = Number(raw);
+  if (Number.isFinite(numeric)) {
+    return `${Math.round(numeric)}%`;
+  }
+
+  return raw;
+}
+
+function formatBatteryLine(battery) {
+  if (!battery) {
+    return '';
+  }
+
+  if (typeof battery === 'string') {
+    return asString(battery, '');
+  }
+
+  if (typeof battery !== 'object') {
+    return '';
+  }
+
+  const name = asString(
+    battery.name || battery.label || battery.friendlyName || battery.entity,
+    'Battery'
+  );
+  const level = normalizeBatteryLevel(
+    battery.level !== undefined ? battery.level : battery.state
+  );
+
+  if (!level) {
+    return name;
+  }
+
+  return `${name}: ${level}`;
+}
+
 function splitMessageLines(value) {
   const raw = asRawString(value, '');
   if (!raw) {
@@ -76,7 +188,7 @@ function buildMessageTemplateData(payload, selectedProfile) {
   const profileMessage = selectedProfile
     ? asRawString(selectedProfile.messageBody, '')
     : '';
-  const messageText = safePayload.hasMessageOverride
+  const messageBodyText = safePayload.hasMessageOverride
     ? asRawString(safePayload.message, '')
     : profileMessage;
 
@@ -85,18 +197,39 @@ function buildMessageTemplateData(payload, selectedProfile) {
     : [];
   const lines = providedLines.length > 0
     ? providedLines
-    : splitMessageLines(messageText);
+    : splitMessageLines(messageBodyText);
 
   if (lines.length === 0) {
     lines.push('');
   }
 
+  const generatedAt = new Date();
+  const printedAt = asString(safePayload.footer, generatedAt.toLocaleString());
+  const headline = asString(safePayload.headline, selectedProfile ? selectedProfile.name : 'Message');
+  const messageText = lines.join('\n');
+  const messageLinesHtml = buildParagraphHtml(lines, 'message-line');
+  const dateTokens = buildDateTokens(generatedAt);
+
   return {
-    headline: asString(safePayload.headline, selectedProfile ? selectedProfile.name : 'Message'),
+    headline,
     lines,
-    printedAt: asString(safePayload.footer, new Date().toLocaleString()),
+    printedAt,
     showHeader: true,
-    showFooter: true
+    showFooter: true,
+    templateContext: {
+      template_type: 'message',
+      title: headline,
+      headline,
+      message_text: messageText,
+      message_lines: messageText,
+      message_lines_html: messageLinesHtml,
+      lines_text: messageText,
+      lines_html: messageLinesHtml,
+      content_html: messageLinesHtml,
+      printed_at: printedAt,
+      printedAt,
+      ...dateTokens
+    }
   };
 }
 
@@ -151,6 +284,78 @@ function summarizeAgendaInput(input) {
   };
 }
 
+function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
+  const source = hydratedInput && typeof hydratedInput === 'object' ? hydratedInput : {};
+  const template = templateData && typeof templateData === 'object' ? templateData : {};
+  const generatedAt = new Date();
+  const dateTokens = buildDateTokens(generatedAt);
+
+  const weather = source.weather && typeof source.weather === 'object' ? source.weather : {};
+  const sleep = source.sleep && typeof source.sleep === 'object' ? source.sleep : {};
+  const events = Array.isArray(source.events) ? source.events : [];
+  const eventLines = events.map(formatAgendaEventLine).filter(Boolean);
+  const batteries = Array.isArray(source.batteries) ? source.batteries : [];
+  const batteryLines = batteries.map(formatBatteryLine).filter(Boolean);
+  const alerts = Array.isArray(source.alerts)
+    ? source.alerts.map((alert) => asString(alert, '')).filter(Boolean)
+    : [];
+  const notesText = asString(source.notes, '');
+  const notesLines = notesText
+    ? notesText.split(/\r?\n/g).map((line) => asString(line, '')).filter(Boolean)
+    : [];
+  const contentLines = Array.isArray(template.lines) ? template.lines : [];
+
+  const currentTemp = asString(weather.temp, '');
+  const weatherSummary = asString(weather.summary, '');
+  const weatherHigh = asString(weather.high, '');
+  const weatherLow = asString(weather.low, '');
+  const hoursOfSleep = asString(sleep.hours, '');
+  const printedAt = asString(template.printedAt, generatedAt.toLocaleString());
+  const subtitle = asString(source.subtitle, '');
+
+  return {
+    template_type: 'daily_agenda',
+    title: asString(template.headline, 'Daily Agenda'),
+    headline: asString(template.headline, 'Daily Agenda'),
+    subtitle,
+    date: dateTokens.date,
+    date_iso: dateTokens.date_iso,
+    day_of_week: dateTokens.day_of_week,
+    month_day: dateTokens.month_day,
+    time: dateTokens.time,
+    printed_at: printedAt,
+    printedAt,
+    weather_summary: weatherSummary,
+    current_temp: currentTemp,
+    weather_high: weatherHigh,
+    weather_low: weatherLow,
+    hours_of_sleep: hoursOfSleep,
+    todays_calendar_events: eventLines.join('\n'),
+    todays_calendar_events_count: String(eventLines.length),
+    todays_calendar_events_html: buildListHtml(eventLines, 'events-list', 'event-item'),
+    battery_levels: batteryLines.join('\n'),
+    battery_levels_count: String(batteryLines.length),
+    battery_levels_html: buildListHtml(batteryLines, 'battery-list', 'battery-item'),
+    alerts: alerts.join('\n'),
+    alerts_count: String(alerts.length),
+    alerts_html: buildListHtml(alerts, 'alerts-list', 'alert-item'),
+    notes: notesText,
+    notes_html: buildParagraphHtml(notesLines, 'notes-line'),
+    content_text: contentLines.join('\n'),
+    content_html: buildParagraphHtml(contentLines, 'line'),
+    section_order: Array.isArray(template.sectionOrder) ? template.sectionOrder.join(',') : '',
+    weather: {
+      summary: weatherSummary,
+      temp: currentTemp,
+      high: weatherHigh,
+      low: weatherLow
+    },
+    sleep: {
+      hours: hoursOfSleep
+    }
+  };
+}
+
 async function runTextJob(config, payload) {
   const print = buildDefaultPrintOptions(config, payload.print);
   const encoded = encodeTextReceipt(config, {
@@ -179,6 +384,7 @@ async function runMessageJob(config, deps, payload) {
   const templateData = buildMessageTemplateData(safePayload, selectedProfile);
 
   const result = await runRenderJob(config, {
+    templateType: 'message',
     templateData,
     print: safePayload.print
   });
@@ -225,13 +431,20 @@ async function runRenderJob(config, payload) {
     ? payload.templateData
     : {};
   const print = buildDefaultPrintOptions(config, payload.print);
+  const templateType = asString(payload.templateType, 'receipt');
+  const templateContext = templateData.templateContext && typeof templateData.templateContext === 'object'
+    ? templateData.templateContext
+    : {};
 
   const imagePath = await renderTemplateToPng(config, {
     headline: templateData.headline || 'HA Receipt Printer',
     lines: Array.isArray(templateData.lines) ? templateData.lines : [],
     printedAt: templateData.printedAt || new Date().toLocaleString(),
     showHeader: templateData.showHeader,
-    showFooter: templateData.showFooter
+    showFooter: templateData.showFooter,
+    templateContext
+  }, {
+    templateType
   });
 
   const encoded = encodeImageReceipt(config, {
@@ -244,6 +457,7 @@ async function runRenderJob(config, payload) {
   const transport = await sendToPrinter(config, encoded);
   return {
     mode: 'render',
+    templateType,
     imagePath,
     payloadBytes: encoded.length,
     print,
@@ -276,9 +490,14 @@ async function runDailyAgendaJob(config, deps, payload) {
     includeDefaults: config.agendaIncludeDefaults,
     sectionOrder: effectiveConfig.agendaSectionOrder
   });
+  const templateContext = buildDailyAgendaTemplateContext(hydratedInput, templateData);
 
   const result = await runRenderJob(effectiveConfig, {
-    templateData,
+    templateType: 'daily_agenda',
+    templateData: {
+      ...templateData,
+      templateContext
+    },
     print: payload.print
   });
 
@@ -306,6 +525,7 @@ async function previewMessage(config, deps, payload) {
   const templateData = buildMessageTemplateData(payload, selectedProfile);
 
   const imagePath = await renderTemplateToPng(config, templateData, {
+    templateType: 'message',
     outputPath: path.join(config.outputDir, 'preview-message.png')
   });
 
@@ -363,8 +583,13 @@ async function previewDailyAgenda(config, deps, payload) {
     includeDefaults: config.agendaIncludeDefaults,
     sectionOrder: effectiveConfig.agendaSectionOrder
   });
+  const templateContext = buildDailyAgendaTemplateContext(hydratedInput, templateData);
 
-  const imagePath = await renderTemplateToPng(effectiveConfig, templateData, {
+  const imagePath = await renderTemplateToPng(effectiveConfig, {
+    ...templateData,
+    templateContext
+  }, {
+    templateType: 'daily_agenda',
     outputPath: path.join(config.outputDir, 'preview-daily-agenda.png')
   });
 

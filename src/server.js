@@ -223,12 +223,16 @@ function normalizeRenderJob(body, config) {
     : body;
 
   return {
+    templateType: asString(body.templateType || body.template || 'receipt', 'receipt'),
     templateData: {
       headline: asString(templateData.headline, 'HA Receipt Printer'),
       lines: normalizeLines(templateData.lines, templateData.message),
       printedAt: asString(templateData.printedAt, new Date().toLocaleString()),
       showHeader: asBoolean(templateData.showHeader, true),
-      showFooter: asBoolean(templateData.showFooter, true)
+      showFooter: asBoolean(templateData.showFooter, true),
+      templateContext: templateData.templateContext && typeof templateData.templateContext === 'object'
+        ? templateData.templateContext
+        : {}
     },
     print: normalizePrintOptions(body.print, {
       feedLines: 3,
@@ -443,7 +447,9 @@ function createReceiptServer(options) {
             paperWidth: config.paperWidth
           },
           templates: {
-            candidates: config.templatePaths || [config.templatePath],
+            receiptCandidates: config.templatePaths || [config.templatePath],
+            messageCandidates: config.messageTemplatePaths || [],
+            dailyAgendaCandidates: config.dailyAgendaTemplatePaths || [],
             customCssPath: config.customCssPath,
             customCssExists: Boolean(cssResult.css && cssResult.css.trim())
           },

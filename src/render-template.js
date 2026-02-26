@@ -60,6 +60,54 @@ function resolveTemplatePath(config) {
   );
 }
 
+function getTemplateCandidates(config, templateType) {
+  const normalizedType = asString(templateType, 'receipt').trim().toLowerCase();
+  if (normalizedType === 'message') {
+    const messageCandidates = Array.isArray(config.messageTemplatePaths)
+      ? config.messageTemplatePaths
+      : [];
+    if (messageCandidates.length > 0) {
+      return messageCandidates;
+    }
+  }
+
+  if (normalizedType === 'daily-agenda' || normalizedType === 'daily_agenda') {
+    const dailyCandidates = Array.isArray(config.dailyAgendaTemplatePaths)
+      ? config.dailyAgendaTemplatePaths
+      : [];
+    if (dailyCandidates.length > 0) {
+      return dailyCandidates;
+    }
+  }
+
+  return Array.isArray(config.templatePaths) && config.templatePaths.length > 0
+    ? config.templatePaths
+    : [config.templatePath].filter(Boolean);
+}
+
+function resolveTemplatePathByType(config, templateType, explicitPath = '') {
+  const forcedPath = asString(explicitPath, '').trim();
+  if (forcedPath) {
+    const absoluteForcedPath = path.isAbsolute(forcedPath)
+      ? forcedPath
+      : path.resolve(process.cwd(), forcedPath);
+    if (fs.existsSync(absoluteForcedPath)) {
+      return absoluteForcedPath;
+    }
+  }
+
+  const candidates = getTemplateCandidates(config, templateType);
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  throw new Error(
+    `Template not found for "${templateType || 'receipt'}". Checked: ${candidates.join(', ')}`
+  );
+}
+
 function resolveCustomCssPath(config) {
   const configured = asString(config.customCssPath, '').trim();
   if (configured) {
@@ -279,27 +327,130 @@ function inlineTemplateImages(templateHtml, templatePath) {
   });
 }
 
-function renderTemplateString(templateHtml, data, customCss = '') {
-  const map = {
-    headline: escapeHtml(data.headline || ''),
-    content_html: buildContentHtml(Array.isArray(data.lines) ? data.lines : []),
-    printedAt: escapeHtml(data.printedAt || ''),
-    header_html: buildHeaderHtml(data),
-    footer_html: buildFooterHtml(data)
+function flattenContext(value, map, prefix = '') {
+  if (value === undefined) {
+    return;
+  }
+
+  if (value === null) {
+    map.set(prefix, '');
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    const joined = value.map((item) => {
+      if (item === undefined || item === null) {
+        return '';
+      }
+      if (typeof item === 'object') {
+        return JSON.stringify(item);
+      }
+      return String(item);
+    }).join('\n');
+    map.set(prefix, joined);
+
+    value.forEach((item, index) => {
+      flattenContext(item, map, prefix ? `${prefix}.${index}` : String(index));
+    });
+    return;
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(value);
+    for (const [key, nested] of entries) {
+      const nextPrefix = prefix ? `${prefix}.${key}` : key;
+      flattenContext(nested, map, nextPrefix);
+    }
+    return;
+  }
+
+  map.set(prefix, String(value));
+}
+
+function buildTokenLookup(context) {
+  const output = new Map();
+  const source = context && typeof context === 'object' ? context : {};
+  flattenContext(source, output, '');
+  output.delete('');
+  return output;
+}
+
+function isHtmlToken(token) {
+  const normalized = asString(token, '').toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return normalized.endsWith('_html');
+}
+
+function replaceTemplateTokens(templateHtml, context = {}) {
+  const tokenLookup = buildTokenLookup(context);
+
+  const renderedRaw = templateHtml.replace(/\{\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}\}/g, (match, tokenName) => {
+    if (!tokenLookup.has(tokenName)) {
+      return match;
+    }
+
+    return tokenLookup.get(tokenName);
+  });
+
+  return renderedRaw.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (match, tokenName) => {
+    if (!tokenLookup.has(tokenName)) {
+      return match;
+    }
+
+    const rawValue = tokenLookup.get(tokenName);
+    if (isHtmlToken(tokenName)) {
+      return rawValue;
+    }
+
+    return escapeHtml(rawValue);
+  });
+}
+
+function buildRenderContext(data) {
+  const source = data && typeof data === 'object' ? data : {};
+  const lines = Array.isArray(source.lines) ? source.lines : [];
+  const contentHtml = buildContentHtml(lines);
+  const headerHtml = buildHeaderHtml(source);
+  const footerHtml = buildFooterHtml(source);
+
+  const defaults = {
+    headline: asString(source.headline, ''),
+    printedAt: asString(source.printedAt, ''),
+    printed_at: asString(source.printedAt, ''),
+    content_html: contentHtml,
+    header_html: headerHtml,
+    footer_html: footerHtml,
+    lines_text: lines.join('\n'),
+    lines_html: contentHtml
   };
 
-  const rendered = templateHtml
-    .replace('{{header_html}}', map.header_html)
-    .replace('{{headline}}', map.headline)
-    .replace('{{content_html}}', map.content_html)
-    .replace('{{printedAt}}', map.printedAt)
-    .replace('{{footer_html}}', map.footer_html);
+  const context = source.templateContext && typeof source.templateContext === 'object'
+    ? source.templateContext
+    : {};
+
+  return {
+    ...defaults,
+    ...source,
+    ...context
+  };
+}
+
+function renderTemplateString(templateHtml, data, customCss = '') {
+  const renderContext = buildRenderContext(data);
+  const rendered = replaceTemplateTokens(templateHtml, renderContext);
 
   return injectCustomCss(rendered, customCss);
 }
 
 async function renderTemplateToPng(config, data, options = {}) {
-  const templatePath = resolveTemplatePath(config);
+  const templatePath = resolveTemplatePathByType(
+    config,
+    options.templateType,
+    options.templatePath
+  );
   const templateHtml = fs.readFileSync(templatePath, 'utf8');
   const { css: customCss } = readCustomCss(config);
   const htmlWithInlineImages = inlineTemplateImages(templateHtml, templatePath);
@@ -352,6 +503,8 @@ module.exports = {
   renderTemplateToPng,
   renderTemplateString,
   resolveTemplatePath,
+  resolveTemplatePathByType,
+  getTemplateCandidates,
   readCustomCss,
   resolveCustomCssPath
 };
