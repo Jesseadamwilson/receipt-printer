@@ -3,6 +3,7 @@ const path = require('node:path');
 
 const PROFILE_TEMPLATES = ['daily_agenda', 'message', 'template'];
 const PROFILE_ITEM_TYPES = ['weather', 'sleep', 'calendar', 'battery', 'alert', 'notes'];
+const DEFAULT_AGENDA_SECTION_ORDER = ['weather', 'sleep', 'events', 'battery', 'alerts', 'notes'];
 
 const SECTION_BY_ITEM_TYPE = {
   weather: 'weather',
@@ -102,49 +103,13 @@ function sanitizeProfile(rawProfile, fallbackTemplate = 'daily_agenda') {
 }
 
 function buildDefaultDailyAgendaItems(config) {
-  const items = [];
+  const items = [
+    sanitizeItem({ type: 'weather', label: 'Weather', entity: '' }),
+    sanitizeItem({ type: 'calendar', label: 'Calendar', entity: '' }),
+    sanitizeItem({ type: 'battery', label: 'Battery', entity: '' })
+  ];
 
-  const pushEntityItem = (type, entity, label = '') => {
-    const clean = asString(entity, '');
-    if (!clean) {
-      return;
-    }
-
-    items.push({
-      id: createId(type),
-      type,
-      entity: clean,
-      label,
-      enabled: true
-    });
-  };
-
-  pushEntityItem('weather', config.agendaWeatherEntity, 'Weather');
-  pushEntityItem('sleep', config.agendaSleepEntity, 'Sleep');
-
-  for (const entity of config.agendaCalendarEntities || []) {
-    pushEntityItem('calendar', entity, 'Calendar');
-  }
-
-  for (const entity of config.agendaBatteryEntities || []) {
-    pushEntityItem('battery', entity, 'Battery');
-  }
-
-  for (const entity of config.agendaAlertEntities || []) {
-    pushEntityItem('alert', entity, 'Alert');
-  }
-
-  pushEntityItem('notes', config.agendaNotesEntity, 'Notes');
-
-  if (items.length === 0) {
-    items.push(
-      sanitizeItem({ type: 'weather', label: 'Weather', entity: '' }),
-      sanitizeItem({ type: 'calendar', label: 'Calendar', entity: '' }),
-      sanitizeItem({ type: 'battery', label: 'Battery', entity: '' })
-    );
-  }
-
-  return sortItemsBySectionOrder(items, config.agendaSectionOrder || []);
+  return sortItemsBySectionOrder(items, config.agendaSectionOrder || DEFAULT_AGENDA_SECTION_ORDER);
 }
 
 function sortItemsBySectionOrder(items, sectionOrder) {
@@ -234,7 +199,7 @@ function deriveAgendaSourceConfigFromProfile(profile, fallbackConfig) {
     agendaBatteryEntities: [],
     agendaAlertEntities: [],
     agendaNotesEntity: '',
-    agendaSectionOrder: [...(fallbackConfig.agendaSectionOrder || [])]
+    agendaSectionOrder: [...(fallbackConfig.agendaSectionOrder || DEFAULT_AGENDA_SECTION_ORDER)]
   };
 
   if (!profile || !Array.isArray(profile.items)) {
@@ -268,7 +233,7 @@ function deriveAgendaSourceConfigFromProfile(profile, fallbackConfig) {
   }
 
   if (sectionOrder.length === 0) {
-    sectionOrder.push(...(fallbackConfig.agendaSectionOrder || []));
+    sectionOrder.push(...(fallbackConfig.agendaSectionOrder || DEFAULT_AGENDA_SECTION_ORDER));
   }
 
   return {

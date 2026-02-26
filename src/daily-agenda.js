@@ -274,10 +274,6 @@ function buildDailyAgendaTemplateData(payload = {}, options = {}) {
     appendSection(lines, SECTION_TITLES[section], sections[section]);
   }
 
-  if (lines.length === 0) {
-    lines.push('No agenda sections enabled or no data available.');
-  }
-
   return {
     headline: title,
     lines,

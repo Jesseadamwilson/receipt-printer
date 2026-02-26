@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.7.4`.
+Current package/add-on version: `0.7.5`.
 
 ## Win Sequence
 
@@ -168,17 +168,6 @@ Recommended options for your current Star test printer:
 - `printer_cut_mode`: `full`
 - `profile_store_path`: `/config/receipt-printer/profiles.json`
 
-Daily agenda source options (configured in add-on settings):
-
-- `agenda_calendar_entities` (comma-separated)
-- `agenda_weather_entity`
-- `agenda_sleep_entity`
-- `agenda_battery_entities` (comma-separated)
-- `agenda_alert_entities` (comma-separated)
-- `agenda_notes_entity`
-- `agenda_section_order` (example: `weather,events,battery,alerts,notes`)
-- `agenda_time_window_hours` (calendar look-ahead window)
-
 Profile editor (v0.7.x):
 
 - Open add-on ingress and go to `/ui`.
@@ -187,12 +176,6 @@ Profile editor (v0.7.x):
 - `Message`: headline + freeform textarea (emoji-safe because `/print/message` now renders image first).
 - `Template CSS + Preview`: edit CSS, preview daily/message as PNG, and print daily/message directly from ingress.
 - Ingress UI mirrors Home Assistant theme variables and follows dark/light mode from HA.
-
-Example values for your setup:
-
-- `agenda_calendar_entities`: `calendar.onyx_coffee_lab,calendar.jesseadamwilson_gmail_com`
-- `agenda_weather_entity`: `weather.ksgf`
-- `agenda_battery_entities`: `sensor.jesses_iphone_15_pro_battery,sensor.jesses_ipad_battery,sensor.jesses_macbook_pro_battery`
 
 If agenda prints only subtitle/no content:
 
@@ -210,15 +193,14 @@ curl -X POST "http://homeassistant.local:8099/print/text" \
   -d '{"headline":"HA Add-on Test","message":"Text from HA add-on","print":{"feedLines":3,"cut":true}}'
 ```
 
-Template override path:
+Template paths:
 
-- `receipt` fallback template: `/config/receipt-printer/templates/receipt.html`
-- `message` template: `/config/receipt-printer/templates/message.html`
-- `daily agenda` template: `/config/receipt-printer/templates/daily-agenda.html`
+- Message print jobs use `message.html`.
+- Daily agenda print jobs use `daily-agenda.html`.
 - Add-on options can override each path:
-- `template_path`
 - `template_message_path`
 - `template_daily_agenda_path`
+- Generic `template_path` is only used for explicit `/print/render` jobs.
 
 Template tokens:
 

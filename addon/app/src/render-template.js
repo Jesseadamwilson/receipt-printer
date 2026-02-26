@@ -66,18 +66,14 @@ function getTemplateCandidates(config, templateType) {
     const messageCandidates = Array.isArray(config.messageTemplatePaths)
       ? config.messageTemplatePaths
       : [];
-    if (messageCandidates.length > 0) {
-      return messageCandidates;
-    }
+    return messageCandidates;
   }
 
   if (normalizedType === 'daily-agenda' || normalizedType === 'daily_agenda') {
     const dailyCandidates = Array.isArray(config.dailyAgendaTemplatePaths)
       ? config.dailyAgendaTemplatePaths
       : [];
-    if (dailyCandidates.length > 0) {
-      return dailyCandidates;
-    }
+    return dailyCandidates;
   }
 
   return Array.isArray(config.templatePaths) && config.templatePaths.length > 0

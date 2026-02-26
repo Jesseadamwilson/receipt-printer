@@ -23,40 +23,6 @@ function parseStringEnv(name, fallback) {
   return String(raw).trim();
 }
 
-function parseBooleanEnv(name, fallback) {
-  const raw = process.env[name];
-  if (raw === undefined || raw === null) {
-    return fallback;
-  }
-
-  const normalized = String(raw).trim().toLowerCase();
-  if (normalized === 'true') {
-    return true;
-  }
-  if (normalized === 'false') {
-    return false;
-  }
-
-  return fallback;
-}
-
-function parseListEnv(name, fallback = []) {
-  const raw = process.env[name];
-  if (raw === undefined || raw === null) {
-    return [...fallback];
-  }
-
-  const value = String(raw).trim();
-  if (!value) {
-    return [...fallback];
-  }
-
-  return value
-    .split(/[\n,]/g)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
 function resolveChromiumPath() {
   const configured = parseStringEnv('CHROMIUM_PATH', '');
   if (configured && fs.existsSync(configured)) {
@@ -93,7 +59,7 @@ function resolveTemplatePaths() {
   return Array.from(new Set(normalized));
 }
 
-function resolveNamedTemplatePaths(envName, defaultFiles, fallbackPaths = []) {
+function resolveNamedTemplatePaths(envName, defaultFiles) {
   const configured = parseStringEnv(envName, '');
   const candidates = [];
 
@@ -104,10 +70,6 @@ function resolveNamedTemplatePaths(envName, defaultFiles, fallbackPaths = []) {
   for (const fileName of defaultFiles) {
     candidates.push(`/config/receipt-printer/templates/${fileName}`);
     candidates.push(path.resolve(process.cwd(), 'templates', fileName));
-  }
-
-  for (const fallback of fallbackPaths) {
-    candidates.push(fallback);
   }
 
   const normalized = candidates.map((candidate) => {
@@ -123,13 +85,11 @@ function loadConfig() {
   const templatePaths = resolveTemplatePaths();
   const messageTemplatePaths = resolveNamedTemplatePaths(
     'TEMPLATE_MESSAGE_PATH',
-    ['message.html', 'receipt.html'],
-    templatePaths
+    ['message.html']
   );
   const dailyAgendaTemplatePaths = resolveNamedTemplatePaths(
     'TEMPLATE_DAILY_AGENDA_PATH',
-    ['daily-agenda.html', 'receipt.html'],
-    templatePaths
+    ['daily-agenda.html']
   );
 
   return {
@@ -153,26 +113,17 @@ function loadConfig() {
     ),
     haApiBaseUrl: parseStringEnv('HA_API_BASE_URL', 'http://supervisor/core/api'),
     haApiToken: parseStringEnv('HA_API_TOKEN', process.env.SUPERVISOR_TOKEN || ''),
-    agendaCalendarEntities: parseListEnv('AGENDA_CALENDAR_ENTITIES', []),
-    agendaWeatherEntity: parseStringEnv('AGENDA_WEATHER_ENTITY', ''),
-    agendaSleepEntity: parseStringEnv('AGENDA_SLEEP_ENTITY', ''),
-    agendaBatteryEntities: parseListEnv('AGENDA_BATTERY_ENTITIES', []),
-    agendaAlertEntities: parseListEnv('AGENDA_ALERT_ENTITIES', []),
-    agendaNotesEntity: parseStringEnv('AGENDA_NOTES_ENTITY', ''),
-    agendaSectionOrder: parseListEnv(
-      'AGENDA_SECTION_ORDER',
-      ['weather', 'sleep', 'events', 'battery', 'alerts', 'notes']
-    ),
-    agendaTimeWindowHours: parseIntEnv('AGENDA_TIME_WINDOW_HOURS', 24),
+    agendaSectionOrder: ['weather', 'sleep', 'events', 'battery', 'alerts', 'notes'],
+    agendaTimeWindowHours: 24,
     agendaIncludeDefaults: {
-      header: parseBooleanEnv('AGENDA_INCLUDE_HEADER', true),
-      weather: parseBooleanEnv('AGENDA_INCLUDE_WEATHER', true),
-      sleep: parseBooleanEnv('AGENDA_INCLUDE_SLEEP', true),
-      events: parseBooleanEnv('AGENDA_INCLUDE_EVENTS', true),
-      battery: parseBooleanEnv('AGENDA_INCLUDE_BATTERY', true),
-      alerts: parseBooleanEnv('AGENDA_INCLUDE_ALERTS', true),
-      notes: parseBooleanEnv('AGENDA_INCLUDE_NOTES', true),
-      footer: parseBooleanEnv('AGENDA_INCLUDE_FOOTER', true)
+      header: true,
+      weather: true,
+      sleep: true,
+      events: true,
+      battery: true,
+      alerts: true,
+      notes: true,
+      footer: true
     },
     paperWidth: parseIntEnv('PAPER_WIDTH', 576),
     chromiumPath: resolveChromiumPath(),

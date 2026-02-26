@@ -458,16 +458,6 @@ function createReceiptServer(options) {
             hasToken: Boolean(config.haApiToken)
           },
           agendaIncludeDefaults: config.agendaIncludeDefaults,
-          agendaSources: {
-            calendarEntities: config.agendaCalendarEntities,
-            weatherEntity: config.agendaWeatherEntity,
-            sleepEntity: config.agendaSleepEntity,
-            batteryEntities: config.agendaBatteryEntities,
-            alertEntities: config.agendaAlertEntities,
-            notesEntity: config.agendaNotesEntity,
-            sectionOrder: config.agendaSectionOrder,
-            timeWindowHours: config.agendaTimeWindowHours
-          },
           profiles: {
             storePath: profileStore.getStorePath(),
             count: Array.isArray(profiles.profiles) ? profiles.profiles.length : 0,
