@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.6.3`.
+Current package/add-on version: `0.7.0`.
 
 ## Win Sequence
 
@@ -9,7 +9,7 @@ Current package/add-on version: `0.6.3`.
 2. Image print from PNG over TCP socket
 3. HTML/CSS -> PNG (Playwright) -> print
 4. Local API + single-worker queue + retries
-5. Ingress UI for modular print profiles + drag/drop data-source ordering
+5. Ingress UI for daily/message setup + template CSS + preview/print actions
 
 ## Setup
 
@@ -122,6 +122,10 @@ Profiles API and UI:
 - `GET /ui` (or `/`) -> profile editor
 - `GET /api/profiles` -> current profile store
 - `PUT /api/profiles` -> save profile store
+- `GET /template/css` -> read custom receipt CSS
+- `PUT /template/css` -> save custom receipt CSS
+- `POST /preview/message` -> render message profile to PNG
+- `POST /preview/daily-agenda` -> render daily agenda profile to PNG
 
 Example: print daily agenda with a selected profile:
 
@@ -175,16 +179,14 @@ Daily agenda source options (configured in add-on settings):
 - `agenda_section_order` (example: `weather,events,battery,alerts,notes`)
 - `agenda_time_window_hours` (calendar look-ahead window)
 
-Profile editor (v0.6.x):
+Profile editor (v0.7.x):
 
-- Open add-on ingress and go to `/ui` to manage profiles.
-- Add/remove profiles and set each profile template (`daily_agenda`, `message`, `template`).
-- `daily_agenda`: add/remove typed items (`weather`, `sleep`, `calendar`, `battery`, `alert`, `notes`) and reorder with drag/drop.
-- `daily_agenda` item entity values are plain Home Assistant entity ID text fields.
-- `message`: freeform textarea content (emoji-safe text).
-- Ingress UI mirrors Home Assistant theme variables and tracks dark/light mode from the parent UI.
-- Drag/drop rows to control render order.
-- Set default daily agenda profile used when `profileId` is omitted on `/print/daily-agenda`.
+- Open add-on ingress and go to `/ui`.
+- Non-structured editor focused on two templates:
+- `Daily Agenda`: add/remove rows, set row type, entity id, optional label, and reorder with Up/Down controls.
+- `Message`: headline + freeform textarea (emoji-safe because `/print/message` now renders image first).
+- `Template CSS + Preview`: edit CSS, preview daily/message as PNG, and print daily/message directly from ingress.
+- Ingress UI mirrors Home Assistant theme variables and follows dark/light mode from HA.
 
 Example values for your setup:
 

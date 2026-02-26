@@ -3,7 +3,11 @@ const path = require('node:path');
 const { loadConfig } = require('./config');
 const { PrintQueue } = require('./queue');
 const { createReceiptServer } = require('./server');
-const { renderTemplateToPng } = require('./render-template');
+const {
+  renderTemplateToPng,
+  readCustomCss,
+  resolveCustomCssPath
+} = require('./render-template');
 const { buildDailyAgendaTemplateData } = require('./daily-agenda');
 const { hydrateDailyAgendaFromHomeAssistant } = require('./ha-data-source');
 const { listHomeAssistantEntities } = require('./ha-client');
@@ -45,6 +49,66 @@ function splitMessageLines(value) {
   }
 
   return raw.replace(/\r\n/g, '\n').split('\n');
+}
+
+function resolveMessageProfile(profileStore, requestedProfileId) {
+  if (!profileStore) {
+    return null;
+  }
+
+  if (requestedProfileId) {
+    const requested = profileStore.getProfileById(requestedProfileId);
+    if (requested && requested.template === 'message') {
+      return requested;
+    }
+  }
+
+  const fallback = profileStore.getDefaultMessageProfile();
+  if (fallback && fallback.template === 'message') {
+    return fallback;
+  }
+
+  return null;
+}
+
+function buildMessageTemplateData(payload, selectedProfile) {
+  const safePayload = payload && typeof payload === 'object' ? payload : {};
+  const profileMessage = selectedProfile
+    ? asRawString(selectedProfile.messageBody, '')
+    : '';
+  const messageText = safePayload.hasMessageOverride
+    ? asRawString(safePayload.message, '')
+    : profileMessage;
+
+  const providedLines = Array.isArray(safePayload.lines)
+    ? safePayload.lines.map((line) => asRawString(line, ''))
+    : [];
+  const lines = providedLines.length > 0
+    ? providedLines
+    : splitMessageLines(messageText);
+
+  if (lines.length === 0) {
+    lines.push('');
+  }
+
+  return {
+    headline: asString(safePayload.headline, selectedProfile ? selectedProfile.name : 'Message'),
+    lines,
+    printedAt: asString(safePayload.footer, new Date().toLocaleString()),
+    showHeader: true,
+    showFooter: true
+  };
+}
+
+function writeCustomCss(config, css) {
+  const cssPath = resolveCustomCssPath(config);
+  fs.mkdirSync(path.dirname(cssPath), { recursive: true });
+  fs.writeFileSync(cssPath, asRawString(css, ''), 'utf8');
+
+  return {
+    path: cssPath,
+    css: asRawString(css, '')
+  };
 }
 
 function readPackageMetadata() {
@@ -108,41 +172,15 @@ async function runTextJob(config, payload) {
 }
 
 async function runMessageJob(config, deps, payload) {
+  const safePayload = payload && typeof payload === 'object' ? payload : {};
   const profileStore = deps && deps.profileStore ? deps.profileStore : null;
-  const requestedProfileId = asString(payload && payload.profileId, '');
-  const requestedProfile = profileStore && requestedProfileId
-    ? profileStore.getProfileById(requestedProfileId)
-    : null;
+  const requestedProfileId = asString(safePayload.profileId, '');
+  const selectedProfile = resolveMessageProfile(profileStore, requestedProfileId);
+  const templateData = buildMessageTemplateData(safePayload, selectedProfile);
 
-  const fallbackMessageProfile = profileStore
-    ? profileStore.getDefaultMessageProfile()
-    : null;
-
-  const selectedProfile = requestedProfile && requestedProfile.template === 'message'
-    ? requestedProfile
-    : (fallbackMessageProfile && fallbackMessageProfile.template === 'message'
-      ? fallbackMessageProfile
-      : null);
-
-  const profileMessage = selectedProfile
-    ? asRawString(selectedProfile.messageBody, '')
-    : '';
-  const messageText = payload && payload.hasMessageOverride
-    ? asRawString(payload.message, '')
-    : profileMessage;
-
-  const providedLines = Array.isArray(payload && payload.lines)
-    ? payload.lines.map((line) => asRawString(line, ''))
-    : [];
-  const lines = providedLines.length > 0
-    ? providedLines
-    : splitMessageLines(messageText);
-
-  const result = await runTextJob(config, {
-    headline: asString(payload && payload.headline, selectedProfile ? selectedProfile.name : 'Message'),
-    lines,
-    footer: asString(payload && payload.footer, new Date().toLocaleString()),
-    print: payload && payload.print
+  const result = await runRenderJob(config, {
+    templateData,
+    print: safePayload.print
   });
 
   return {
@@ -156,9 +194,9 @@ async function runMessageJob(config, deps, payload) {
       }
       : null,
     source: {
-      usedProfileBody: !payload.hasMessageOverride && providedLines.length === 0,
-      usedPayloadMessage: payload.hasMessageOverride,
-      usedPayloadLines: providedLines.length > 0
+      usedProfileBody: !safePayload.hasMessageOverride,
+      usedPayloadMessage: safePayload.hasMessageOverride,
+      usedPayloadLines: Array.isArray(safePayload.lines) && safePayload.lines.length > 0
     }
   };
 }
@@ -261,6 +299,89 @@ async function runDailyAgendaJob(config, deps, payload) {
   };
 }
 
+async function previewMessage(config, deps, payload) {
+  const profileStore = deps && deps.profileStore ? deps.profileStore : null;
+  const requestedProfileId = asString(payload && payload.profileId, '');
+  const selectedProfile = resolveMessageProfile(profileStore, requestedProfileId);
+  const templateData = buildMessageTemplateData(payload, selectedProfile);
+
+  const imagePath = await renderTemplateToPng(config, templateData, {
+    outputPath: path.join(config.outputDir, 'preview-message.png')
+  });
+
+  return {
+    imagePath,
+    templateData,
+    profile: selectedProfile
+      ? {
+        id: selectedProfile.id,
+        name: selectedProfile.name,
+        template: selectedProfile.template
+      }
+      : null
+  };
+}
+
+async function previewDailyAgenda(config, deps, payload) {
+  const safePayload = payload && typeof payload === 'object' ? payload : {};
+  const profileStore = deps && deps.profileStore ? deps.profileStore : null;
+  const requestedProfileId = asString(safePayload.profileId, '');
+  const selectedProfile = profileStore
+    ? (requestedProfileId
+      ? profileStore.getProfileById(requestedProfileId)
+      : profileStore.getDefaultDailyAgendaProfile())
+    : null;
+
+  const profileSources = selectedProfile
+    ? deriveAgendaSourceConfigFromProfile(selectedProfile, config)
+    : null;
+  const effectiveConfig = profileSources
+    ? { ...config, ...profileSources }
+    : config;
+
+  const hydratedInput = await hydrateDailyAgendaFromHomeAssistant(
+    effectiveConfig,
+    safePayload.agendaInput && typeof safePayload.agendaInput === 'object'
+      ? safePayload.agendaInput
+      : {
+        title: asString(safePayload.title || safePayload.headline, 'Daily Agenda'),
+        subtitle: asString(safePayload.subtitle, 'Today'),
+        printedAt: asString(safePayload.printedAt, new Date().toLocaleString()),
+        include: safePayload.include && typeof safePayload.include === 'object' ? safePayload.include : {},
+        sectionOrder: safePayload.sectionOrder,
+        source: asString(safePayload.source, 'auto'),
+        weather: safePayload.weather && typeof safePayload.weather === 'object' ? safePayload.weather : undefined,
+        sleep: safePayload.sleep && typeof safePayload.sleep === 'object' ? safePayload.sleep : undefined,
+        events: Array.isArray(safePayload.events) ? safePayload.events : [],
+        batteries: Array.isArray(safePayload.batteries) ? safePayload.batteries : [],
+        alerts: Array.isArray(safePayload.alerts) ? safePayload.alerts : [],
+        notes: asString(safePayload.notes, '')
+      }
+  );
+
+  const templateData = buildDailyAgendaTemplateData(hydratedInput, {
+    includeDefaults: config.agendaIncludeDefaults,
+    sectionOrder: effectiveConfig.agendaSectionOrder
+  });
+
+  const imagePath = await renderTemplateToPng(effectiveConfig, templateData, {
+    outputPath: path.join(config.outputDir, 'preview-daily-agenda.png')
+  });
+
+  return {
+    imagePath,
+    templateData,
+    sourceDataSummary: summarizeAgendaInput(hydratedInput),
+    profile: selectedProfile
+      ? {
+        id: selectedProfile.id,
+        name: selectedProfile.name,
+        template: selectedProfile.template
+      }
+      : null
+  };
+}
+
 async function runPrintJob(config, deps, job) {
   switch (job.type) {
     case 'text':
@@ -297,7 +418,11 @@ function startServer() {
     queue,
     serviceMeta,
     profileStore,
-    listEntities: (options) => listHomeAssistantEntities(config, options)
+    listEntities: (options) => listHomeAssistantEntities(config, options),
+    previewMessage: (payload) => previewMessage(config, deps, payload),
+    previewDailyAgenda: (payload) => previewDailyAgenda(config, deps, payload),
+    readTemplateCss: () => readCustomCss(config),
+    writeTemplateCss: (css) => writeCustomCss(config, css)
   });
 
   server.on('error', (error) => {

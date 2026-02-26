@@ -2,8 +2,8 @@
   --rp-bg: var(--primary-background-color, #111111);
   --rp-text: var(--primary-text-color, #e6e6e6);
   --rp-secondary: var(--secondary-text-color, #9e9e9e);
-  --rp-card-bg: var(--ha-card-background, var(--card-background-color, #ffffff));
-  --rp-border: var(--divider-color, rgba(0, 0, 0, 0.12));
+  --rp-card-bg: var(--ha-card-background, var(--card-background-color, #1d1d1d));
+  --rp-border: var(--divider-color, rgba(255, 255, 255, 0.12));
   --rp-primary: var(--primary-color, #03a9f4);
   --rp-primary-text: var(--text-primary-color, #ffffff);
   --rp-error: var(--error-color, #db4437);
@@ -54,7 +54,7 @@ h3 {
 }
 
 .page {
-  max-width: 1280px;
+  max-width: 1320px;
   margin: 0 auto;
   padding: 16px;
 }
@@ -87,15 +87,9 @@ h3 {
   color: var(--rp-secondary);
 }
 
-.header-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
 .layout {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
 
@@ -104,51 +98,23 @@ h3 {
   padding: 12px;
 }
 
+.card-full {
+  grid-column: 1 / -1;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 10px;
   margin-bottom: 12px;
 }
 
-.profile-list {
-  display: grid;
+.header-actions,
+.preview-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-}
-
-.profile-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-
-.profile-select {
-  display: block;
-  width: 100%;
-  text-align: left;
-  border: 1px solid var(--rp-border);
-  border-radius: 10px;
-  background: var(--rp-card-bg);
-  color: var(--rp-text);
-  padding: 9px 10px;
-  cursor: pointer;
-}
-
-.profile-row.is-selected .profile-select {
-  border-color: var(--rp-primary);
-  box-shadow: inset 0 0 0 1px var(--rp-primary);
-}
-
-.profile-name {
-  display: block;
-  font-weight: 500;
-}
-
-.profile-meta {
-  display: block;
-  color: var(--rp-secondary);
-  font-size: 12px;
 }
 
 .btn {
@@ -175,26 +141,11 @@ h3 {
   color: var(--rp-error);
 }
 
-.empty-state,
-.empty-list {
-  border: 1px dashed var(--rp-border);
-  border-radius: 10px;
-  color: var(--rp-secondary);
-  text-align: center;
-  padding: 16px;
-}
-
-.field-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .field span {
@@ -229,67 +180,31 @@ h3 {
 
 .field textarea {
   resize: vertical;
-  min-height: 160px;
-}
-
-.field-checkbox {
-  align-self: end;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 0;
-}
-
-.section-block {
-  border-top: 1px solid var(--rp-border);
-  margin-top: 12px;
-  padding-top: 12px;
-}
-
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
+  min-height: 140px;
 }
 
 .item-list {
   display: grid;
   gap: 8px;
-  margin-top: 8px;
+}
+
+.item-empty {
+  border: 1px dashed var(--rp-border);
+  border-radius: 10px;
+  color: var(--rp-secondary);
+  text-align: center;
+  padding: 16px;
 }
 
 .item-row {
   display: grid;
-  grid-template-columns: 36px 150px minmax(220px, 1fr) minmax(160px, 0.8fr) 80px auto;
+  grid-template-columns: 150px minmax(220px, 1fr) minmax(120px, 0.7fr) 90px auto;
   gap: 8px;
   align-items: center;
   border: 1px solid var(--rp-border);
   border-radius: 10px;
   padding: 8px;
   background: var(--rp-card-bg);
-}
-
-.item-row.is-dragging {
-  opacity: 0.45;
-}
-
-.item-row.is-drop-target {
-  border-color: var(--rp-primary);
-  box-shadow: inset 0 0 0 1px var(--rp-primary);
-}
-
-.drag-handle {
-  border: 1px dashed var(--rp-border);
-  border-radius: 8px;
-  background: transparent;
-  cursor: grab;
-  padding: 7px 0;
-  color: var(--rp-secondary);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
 }
 
 .item-enabled {
@@ -299,6 +214,31 @@ h3 {
   gap: 6px;
   font-size: 12px;
   color: var(--rp-secondary);
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.preview-frame {
+  margin-top: 10px;
+  border: 1px dashed var(--rp-border);
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--rp-card-bg) 85%, black 15%);
+}
+
+.preview-frame img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  background: #fff;
 }
 
 .status-bar {
@@ -319,6 +259,10 @@ h3 {
   border-color: color-mix(in srgb, var(--rp-success) 45%, transparent);
 }
 
+.status-bar[data-kind="error"] {
+  border-color: color-mix(in srgb, var(--rp-error) 45%, transparent);
+}
+
 .status-bar[data-kind="warning"] {
   border-color: color-mix(in srgb, #f9a825 45%, transparent);
 }
@@ -327,48 +271,26 @@ h3 {
   border-color: color-mix(in srgb, var(--rp-error) 45%, transparent);
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1100px) {
   .layout {
     grid-template-columns: 1fr;
   }
 
-  .field-grid {
+  .card-full {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 780px) {
+  .item-row {
     grid-template-columns: 1fr;
   }
 
-  .item-row {
-    grid-template-columns: 36px 1fr;
-    grid-template-areas:
-      "drag type"
-      "drag entity"
-      "drag label"
-      "drag enabled"
-      "drag remove";
-  }
-
-  .item-row .drag-handle {
-    grid-area: drag;
-    height: 100%;
-  }
-
-  .item-row [data-field="type"] {
-    grid-area: type;
-  }
-
-  .item-row [data-field="entity"] {
-    grid-area: entity;
-  }
-
-  .item-row [data-field="label"] {
-    grid-area: label;
-  }
-
-  .item-row .item-enabled {
-    grid-area: enabled;
+  .item-enabled {
     justify-content: flex-start;
   }
 
-  .item-row [data-action="remove-item"] {
-    grid-area: remove;
+  .row-actions {
+    justify-content: flex-start;
   }
 }

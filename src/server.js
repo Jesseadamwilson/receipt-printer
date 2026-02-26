@@ -16,6 +16,18 @@ function jsonResponse(res, statusCode, payload) {
   res.end(body);
 }
 
+function textResponse(res, statusCode, payload, contentType = 'text/plain; charset=utf-8') {
+  const body = String(payload);
+  res.writeHead(statusCode, {
+    'Content-Type': contentType,
+    'Content-Length': Buffer.byteLength(body, 'utf8'),
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,OPTIONS'
+  });
+  res.end(body);
+}
+
 function fileResponse(res, statusCode, filePath, contentType) {
   if (!fs.existsSync(filePath)) {
     return false;
@@ -273,7 +285,11 @@ function createReceiptServer(options) {
     queue,
     serviceMeta,
     profileStore,
-    listEntities
+    listEntities,
+    previewMessage,
+    previewDailyAgenda,
+    readTemplateCss,
+    writeTemplateCss
   } = options;
 
   if (!queue || typeof queue.enqueue !== 'function') {
@@ -286,6 +302,14 @@ function createReceiptServer(options) {
 
   if (typeof listEntities !== 'function') {
     throw new Error('createReceiptServer requires a listEntities(options) function');
+  }
+
+  if (typeof previewMessage !== 'function' || typeof previewDailyAgenda !== 'function') {
+    throw new Error('createReceiptServer requires previewMessage()/previewDailyAgenda() functions');
+  }
+
+  if (typeof readTemplateCss !== 'function' || typeof writeTemplateCss !== 'function') {
+    throw new Error('createReceiptServer requires readTemplateCss()/writeTemplateCss() functions');
   }
 
   return http.createServer(async (req, res) => {
@@ -358,8 +382,49 @@ function createReceiptServer(options) {
         return;
       }
 
+      if (req.method === 'GET' && pathname === '/template/css') {
+        const cssResult = readTemplateCss();
+        jsonResponse(res, 200, {
+          ok: true,
+          path: cssResult.path,
+          css: cssResult.css
+        });
+        return;
+      }
+
+      if ((req.method === 'PUT' || req.method === 'POST') && pathname === '/template/css') {
+        const body = await parseJsonBody(req);
+        const css = asRawString(body.css, '');
+        const saved = writeTemplateCss(css);
+        jsonResponse(res, 200, {
+          ok: true,
+          path: saved.path,
+          css: saved.css
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/preview/message') {
+        const body = await parseJsonBody(req);
+        const result = await previewMessage(body);
+        if (!fileResponse(res, 200, result.imagePath, 'image/png')) {
+          jsonResponse(res, 500, { ok: false, error: `Preview image not found: ${result.imagePath}` });
+        }
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/preview/daily-agenda') {
+        const body = await parseJsonBody(req);
+        const result = await previewDailyAgenda(body);
+        if (!fileResponse(res, 200, result.imagePath, 'image/png')) {
+          jsonResponse(res, 500, { ok: false, error: `Preview image not found: ${result.imagePath}` });
+        }
+        return;
+      }
+
       if (req.method === 'GET' && pathname === '/health') {
         const profiles = profileStore.get();
+        const cssResult = readTemplateCss();
 
         jsonResponse(res, 200, {
           ok: true,
@@ -378,7 +443,9 @@ function createReceiptServer(options) {
             paperWidth: config.paperWidth
           },
           templates: {
-            candidates: config.templatePaths || [config.templatePath]
+            candidates: config.templatePaths || [config.templatePath],
+            customCssPath: config.customCssPath,
+            customCssExists: Boolean(cssResult.css && cssResult.css.trim())
           },
           homeAssistantApi: {
             baseUrl: config.haApiBaseUrl,

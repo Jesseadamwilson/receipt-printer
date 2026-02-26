@@ -2,17 +2,18 @@
 
 (function bootstrap() {
   const state = {
-    templates: [],
-    itemTypes: [],
     store: {
       version: 1,
       updatedAt: '',
       defaultDailyAgendaProfileId: '',
       profiles: []
     },
-    selectedProfileId: '',
+    itemTypes: ['weather', 'sleep', 'calendar', 'battery', 'alert', 'notes'],
+    dailyProfileId: '',
+    messageProfileId: '',
+    customCss: '',
     dirty: false,
-    draggingItemId: ''
+    previewUrl: ''
   };
 
   const ui = {};
@@ -54,205 +55,6 @@
     }
 
     return String(value);
-  }
-
-  function parseColorChannels(value) {
-    const raw = asRawString(value, '').trim();
-    if (!raw) {
-      return null;
-    }
-
-    const rgbMatch = raw.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
-    if (rgbMatch) {
-      return [
-        Math.max(0, Math.min(255, Number(rgbMatch[1]))),
-        Math.max(0, Math.min(255, Number(rgbMatch[2]))),
-        Math.max(0, Math.min(255, Number(rgbMatch[3])))
-      ];
-    }
-
-    const hexMatch = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-    if (hexMatch) {
-      const hex = hexMatch[1];
-      if (hex.length === 3) {
-        return [
-          Number.parseInt(`${hex[0]}${hex[0]}`, 16),
-          Number.parseInt(`${hex[1]}${hex[1]}`, 16),
-          Number.parseInt(`${hex[2]}${hex[2]}`, 16)
-        ];
-      }
-
-      return [
-        Number.parseInt(hex.slice(0, 2), 16),
-        Number.parseInt(hex.slice(2, 4), 16),
-        Number.parseInt(hex.slice(4, 6), 16)
-      ];
-    }
-
-    return null;
-  }
-
-  function calculateLuminance(channels) {
-    if (!Array.isArray(channels) || channels.length < 3) {
-      return null;
-    }
-
-    const transform = (channel) => {
-      const normalized = channel / 255;
-      return normalized <= 0.03928
-        ? normalized / 12.92
-        : Math.pow((normalized + 0.055) / 1.055, 2.4);
-    };
-
-    const [r, g, b] = channels;
-    return (0.2126 * transform(r)) + (0.7152 * transform(g)) + (0.0722 * transform(b));
-  }
-
-  function detectDarkFromColors(backgroundColor, textColor) {
-    const bgChannels = parseColorChannels(backgroundColor);
-    const textChannels = parseColorChannels(textColor);
-    const bgLuminance = calculateLuminance(bgChannels);
-    const textLuminance = calculateLuminance(textChannels);
-
-    if (!Number.isFinite(bgLuminance) || !Number.isFinite(textLuminance)) {
-      return null;
-    }
-
-    return bgLuminance < textLuminance;
-  }
-
-  function buildThemeSources(sourceWindow) {
-    const sources = [];
-    const doc = sourceWindow.document;
-    if (!doc) {
-      return sources;
-    }
-
-    if (doc.documentElement) {
-      sources.push(doc.documentElement);
-    }
-    if (doc.body) {
-      sources.push(doc.body);
-    }
-
-    const haRoot = doc.querySelector('home-assistant');
-    if (haRoot) {
-      sources.push(haRoot);
-
-      if (haRoot.shadowRoot) {
-        const haMain = haRoot.shadowRoot.querySelector('home-assistant-main');
-        if (haMain) {
-          sources.push(haMain);
-        }
-      }
-    }
-
-    return sources;
-  }
-
-  function applyFallbackThemeMode(sourceWindow) {
-    const win = sourceWindow || window;
-    const prefersDark = Boolean(
-      win.matchMedia &&
-      win.matchMedia('(prefers-color-scheme: dark)').matches
-    );
-    document.documentElement.dataset.rpTheme = prefersDark ? 'dark' : 'light';
-  }
-
-  function syncThemeVariablesFromParent(sourceWindow) {
-    const sources = buildThemeSources(sourceWindow);
-    if (sources.length === 0) {
-      applyFallbackThemeMode(sourceWindow);
-      return;
-    }
-
-    const themeValues = {};
-    for (const variable of THEME_VARIABLES) {
-      for (const source of sources) {
-        const value = sourceWindow.getComputedStyle(source).getPropertyValue(variable).trim();
-        if (value) {
-          themeValues[variable] = value;
-          break;
-        }
-      }
-    }
-
-    const rootStyle = document.documentElement.style;
-    Object.entries(themeValues).forEach(([name, value]) => {
-      rootStyle.setProperty(name, value);
-    });
-
-    const backgroundColor = themeValues['--primary-background-color'] || '';
-    const textColor = themeValues['--primary-text-color'] || '';
-    const isDark = detectDarkFromColors(backgroundColor, textColor);
-    if (isDark === null) {
-      applyFallbackThemeMode(sourceWindow);
-      return;
-    }
-
-    document.documentElement.dataset.rpTheme = isDark ? 'dark' : 'light';
-  }
-
-  function setupThemeSync() {
-    const parentWindow = window.parent && window.parent !== window
-      ? window.parent
-      : null;
-
-    if (!parentWindow) {
-      applyFallbackThemeMode(window);
-      return;
-    }
-
-    try {
-      const syncTheme = () => {
-        syncThemeVariablesFromParent(parentWindow);
-      };
-
-      syncTheme();
-
-      const observer = new MutationObserver(() => {
-        syncTheme();
-      });
-
-      const doc = parentWindow.document;
-      if (doc.documentElement) {
-        observer.observe(doc.documentElement, {
-          attributes: true,
-          childList: false,
-          subtree: false
-        });
-      }
-
-      if (doc.body) {
-        observer.observe(doc.body, {
-          attributes: true,
-          childList: true,
-          subtree: true
-        });
-      }
-
-      if (doc.head) {
-        observer.observe(doc.head, {
-          attributes: false,
-          childList: true,
-          subtree: true
-        });
-      }
-
-      if (parentWindow.matchMedia) {
-        const media = parentWindow.matchMedia('(prefers-color-scheme: dark)');
-        if (typeof media.addEventListener === 'function') {
-          media.addEventListener('change', syncTheme);
-        } else if (typeof media.addListener === 'function') {
-          media.addListener(syncTheme);
-        }
-      }
-
-      window.addEventListener('focus', syncTheme);
-      setInterval(syncTheme, 2500);
-    } catch (_error) {
-      applyFallbackThemeMode(parentWindow);
-    }
   }
 
   function asBoolean(value, fallback = false) {
@@ -325,6 +127,23 @@
     return payload;
   }
 
+  async function fetchImageBlob(url, body) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body || {})
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(text || `Preview failed (${response.status})`);
+    }
+
+    return response.blob();
+  }
+
   function setStatus(message, kind = 'info') {
     ui.statusBar.textContent = message;
     ui.statusBar.dataset.kind = kind;
@@ -333,6 +152,172 @@
   function setDirty(value) {
     state.dirty = Boolean(value);
     ui.saveBtn.disabled = !state.dirty;
+  }
+
+  function parseColorChannels(value) {
+    const raw = asRawString(value, '').trim();
+    if (!raw) {
+      return null;
+    }
+
+    const rgbMatch = raw.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if (rgbMatch) {
+      return [
+        Math.max(0, Math.min(255, Number(rgbMatch[1]))),
+        Math.max(0, Math.min(255, Number(rgbMatch[2]))),
+        Math.max(0, Math.min(255, Number(rgbMatch[3])))
+      ];
+    }
+
+    const hexMatch = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (hexMatch) {
+      const hex = hexMatch[1];
+      if (hex.length === 3) {
+        return [
+          Number.parseInt(`${hex[0]}${hex[0]}`, 16),
+          Number.parseInt(`${hex[1]}${hex[1]}`, 16),
+          Number.parseInt(`${hex[2]}${hex[2]}`, 16)
+        ];
+      }
+
+      return [
+        Number.parseInt(hex.slice(0, 2), 16),
+        Number.parseInt(hex.slice(2, 4), 16),
+        Number.parseInt(hex.slice(4, 6), 16)
+      ];
+    }
+
+    return null;
+  }
+
+  function calculateLuminance(channels) {
+    if (!Array.isArray(channels) || channels.length < 3) {
+      return null;
+    }
+
+    const transform = (channel) => {
+      const normalized = channel / 255;
+      return normalized <= 0.03928
+        ? normalized / 12.92
+        : Math.pow((normalized + 0.055) / 1.055, 2.4);
+    };
+
+    const [r, g, b] = channels;
+    return (0.2126 * transform(r)) + (0.7152 * transform(g)) + (0.0722 * transform(b));
+  }
+
+  function detectDarkFromColors(backgroundColor, textColor) {
+    const bgLuminance = calculateLuminance(parseColorChannels(backgroundColor));
+    const textLuminance = calculateLuminance(parseColorChannels(textColor));
+
+    if (!Number.isFinite(bgLuminance) || !Number.isFinite(textLuminance)) {
+      return null;
+    }
+
+    return bgLuminance < textLuminance;
+  }
+
+  function buildThemeSources(sourceWindow) {
+    const sources = [];
+    const doc = sourceWindow.document;
+    if (!doc) {
+      return sources;
+    }
+
+    if (doc.documentElement) {
+      sources.push(doc.documentElement);
+    }
+    if (doc.body) {
+      sources.push(doc.body);
+    }
+
+    const haRoot = doc.querySelector('home-assistant');
+    if (haRoot) {
+      sources.push(haRoot);
+    }
+
+    return sources;
+  }
+
+  function applyFallbackThemeMode(sourceWindow) {
+    const win = sourceWindow || window;
+    const prefersDark = Boolean(
+      win.matchMedia &&
+      win.matchMedia('(prefers-color-scheme: dark)').matches
+    );
+    document.documentElement.dataset.rpTheme = prefersDark ? 'dark' : 'light';
+  }
+
+  function syncThemeVariablesFromParent(sourceWindow) {
+    const sources = buildThemeSources(sourceWindow);
+    if (sources.length === 0) {
+      applyFallbackThemeMode(sourceWindow);
+      return;
+    }
+
+    const themeValues = {};
+    for (const variable of THEME_VARIABLES) {
+      for (const source of sources) {
+        const value = sourceWindow.getComputedStyle(source).getPropertyValue(variable).trim();
+        if (value) {
+          themeValues[variable] = value;
+          break;
+        }
+      }
+    }
+
+    const rootStyle = document.documentElement.style;
+    Object.entries(themeValues).forEach(([name, value]) => {
+      rootStyle.setProperty(name, value);
+    });
+
+    const isDark = detectDarkFromColors(
+      themeValues['--primary-background-color'] || '',
+      themeValues['--primary-text-color'] || ''
+    );
+
+    if (isDark === null) {
+      applyFallbackThemeMode(sourceWindow);
+      return;
+    }
+
+    document.documentElement.dataset.rpTheme = isDark ? 'dark' : 'light';
+  }
+
+  function setupThemeSync() {
+    const parentWindow = window.parent && window.parent !== window ? window.parent : null;
+    if (!parentWindow) {
+      applyFallbackThemeMode(window);
+      return;
+    }
+
+    try {
+      const syncTheme = () => syncThemeVariablesFromParent(parentWindow);
+      syncTheme();
+
+      const observer = new MutationObserver(syncTheme);
+      const doc = parentWindow.document;
+      if (doc.documentElement) {
+        observer.observe(doc.documentElement, { attributes: true, childList: false, subtree: false });
+      }
+      if (doc.body) {
+        observer.observe(doc.body, { attributes: true, childList: true, subtree: true });
+      }
+
+      if (parentWindow.matchMedia) {
+        const media = parentWindow.matchMedia('(prefers-color-scheme: dark)');
+        if (typeof media.addEventListener === 'function') {
+          media.addEventListener('change', syncTheme);
+        } else if (typeof media.addListener === 'function') {
+          media.addListener(syncTheme);
+        }
+      }
+
+      window.addEventListener('focus', syncTheme);
+      setInterval(syncTheme, 3000);
+    } catch (_error) {
+      applyFallbackThemeMode(parentWindow);
+    }
   }
 
   function sanitizeItem(rawItem) {
@@ -350,131 +335,97 @@
     };
   }
 
-  function sanitizeProfile(rawProfile) {
-    const source = rawProfile && typeof rawProfile === 'object' ? rawProfile : {};
-    const fallbackTemplate = state.templates[0] || 'daily_agenda';
-    const templateCandidate = asString(source.template, fallbackTemplate).toLowerCase();
-    const template = state.templates.includes(templateCandidate)
-      ? templateCandidate
-      : fallbackTemplate;
-
+  function createDailyProfile() {
     return {
-      id: asString(source.id, createId('profile')),
-      name: asString(source.name, 'New Profile'),
-      template,
-      enabled: asBoolean(source.enabled, true),
-      items: Array.isArray(source.items) ? source.items.map(sanitizeItem) : [],
-      messageBody: asRawString(source.messageBody, '')
+      id: createId('daily'),
+      name: 'Daily Agenda',
+      template: 'daily_agenda',
+      enabled: true,
+      items: []
     };
   }
 
-  function findProfileById(profileId) {
-    return state.store.profiles.find((profile) => profile.id === profileId) || null;
-  }
-
-  function getSelectedProfile() {
-    return findProfileById(state.selectedProfileId);
-  }
-
-  function ensureStoreIntegrity() {
-    if (!Array.isArray(state.store.profiles)) {
-      state.store.profiles = [];
-    }
-
-    state.store.profiles = state.store.profiles.map(sanitizeProfile);
-
-    if (state.store.profiles.length === 0) {
-      state.store.profiles.push(sanitizeProfile({
-        id: 'daily_agenda_main',
-        name: 'Daily Agenda',
-        template: 'daily_agenda',
-        enabled: true,
-        items: []
-      }));
-    }
-
-    if (!state.selectedProfileId || !findProfileById(state.selectedProfileId)) {
-      state.selectedProfileId = state.store.profiles[0].id;
-    }
-
-    const dailyProfiles = state.store.profiles.filter((profile) => profile.template === 'daily_agenda');
-    if (dailyProfiles.length === 0) {
-      state.store.defaultDailyAgendaProfileId = '';
-      return;
-    }
-
-    const currentDefault = asString(state.store.defaultDailyAgendaProfileId, '');
-    const exists = dailyProfiles.some((profile) => profile.id === currentDefault);
-    if (!exists) {
-      state.store.defaultDailyAgendaProfileId = dailyProfiles[0].id;
-    }
-  }
-
-  function createEmptyProfile() {
-    const fallbackTemplate = state.templates[0] || 'daily_agenda';
+  function createMessageProfile() {
     return {
-      id: createId('profile'),
-      name: 'New Profile',
-      template: fallbackTemplate,
+      id: createId('message'),
+      name: 'Message',
+      template: 'message',
       enabled: true,
       items: [],
       messageBody: ''
     };
   }
 
+  function ensureSimpleProfiles() {
+    if (!Array.isArray(state.store.profiles)) {
+      state.store.profiles = [];
+    }
+
+    state.store.profiles = state.store.profiles.map((profile) => ({
+      ...profile,
+      items: Array.isArray(profile.items) ? profile.items.map(sanitizeItem) : [],
+      messageBody: asRawString(profile.messageBody, '')
+    }));
+
+    let dailyProfile = null;
+    const byDefault = state.store.profiles.find((profile) => {
+      return profile.id === state.store.defaultDailyAgendaProfileId && profile.template === 'daily_agenda';
+    });
+    if (byDefault) {
+      dailyProfile = byDefault;
+    }
+
+    if (!dailyProfile) {
+      dailyProfile = state.store.profiles.find((profile) => profile.template === 'daily_agenda') || null;
+    }
+
+    if (!dailyProfile) {
+      dailyProfile = createDailyProfile();
+      state.store.profiles.push(dailyProfile);
+    }
+
+    state.store.defaultDailyAgendaProfileId = dailyProfile.id;
+    state.dailyProfileId = dailyProfile.id;
+
+    let messageProfile = state.store.profiles.find((profile) => profile.template === 'message') || null;
+    if (!messageProfile) {
+      messageProfile = createMessageProfile();
+      state.store.profiles.push(messageProfile);
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(messageProfile, 'messageBody')) {
+      messageProfile.messageBody = '';
+    }
+
+    state.messageProfileId = messageProfile.id;
+  }
+
+  function getDailyProfile() {
+    return state.store.profiles.find((profile) => profile.id === state.dailyProfileId) || null;
+  }
+
+  function getMessageProfile() {
+    return state.store.profiles.find((profile) => profile.id === state.messageProfileId) || null;
+  }
+
   function createEmptyItem() {
-    const fallbackType = state.itemTypes[0] || 'weather';
     return {
       id: createId('item'),
-      type: fallbackType,
+      type: state.itemTypes[0] || 'weather',
       entity: '',
       label: '',
       enabled: true
     };
   }
 
-  function renderProfileList() {
-    if (state.store.profiles.length === 0) {
-      ui.profileList.innerHTML = '<div class="empty-list">No profiles configured.</div>';
+  function renderDailyRows() {
+    const dailyProfile = getDailyProfile();
+    if (!dailyProfile || !Array.isArray(dailyProfile.items) || dailyProfile.items.length === 0) {
+      ui.itemList.innerHTML = '<div class="item-empty">No agenda rows configured.</div>';
       return;
     }
 
-    ui.profileList.innerHTML = state.store.profiles.map((profile) => {
-      const selectedClass = profile.id === state.selectedProfileId ? 'is-selected' : '';
-      return [
-        `<div class="profile-row ${selectedClass}">`,
-        `<button class="profile-select" data-action="select-profile" data-profile-id="${escapeHtml(profile.id)}">`,
-        `<span class="profile-name">${escapeHtml(profile.name)}</span>`,
-        `<span class="profile-meta">${escapeHtml(profile.template)}</span>`,
-        '</button>',
-        `<button class="btn btn-danger" data-action="remove-profile" data-profile-id="${escapeHtml(profile.id)}">Remove</button>`,
-        '</div>'
-      ].join('');
-    }).join('');
-  }
-
-  function renderDefaultProfileSelect() {
-    const dailyProfiles = state.store.profiles.filter((profile) => profile.template === 'daily_agenda');
-    if (dailyProfiles.length === 0) {
-      ui.defaultDailyProfile.innerHTML = '<option value="">No daily_agenda profile available</option>';
-      ui.defaultDailyProfile.disabled = true;
-      return;
-    }
-
-    ui.defaultDailyProfile.disabled = false;
-    ui.defaultDailyProfile.innerHTML = dailyProfiles.map((profile) => {
-      const selected = profile.id === state.store.defaultDailyAgendaProfileId ? ' selected' : '';
-      return `<option value="${escapeHtml(profile.id)}"${selected}>${escapeHtml(profile.name)}</option>`;
-    }).join('');
-  }
-
-  function renderItemRows(profile) {
-    if (!profile || !Array.isArray(profile.items) || profile.items.length === 0) {
-      ui.itemList.innerHTML = '<div class="empty-list">No data-source items configured.</div>';
-      return;
-    }
-
-    ui.itemList.innerHTML = profile.items.map((item) => {
+    ui.itemList.innerHTML = dailyProfile.items.map((item, index) => {
       const typeOptions = state.itemTypes.map((type) => {
         const selected = type === item.type ? ' selected' : '';
         return `<option value="${escapeHtml(type)}"${selected}>${escapeHtml(type)}</option>`;
@@ -482,8 +433,7 @@
       const checked = item.enabled ? ' checked' : '';
 
       return [
-        `<div class="item-row" draggable="true" data-item-id="${escapeHtml(item.id)}">`,
-        '<button class="drag-handle" title="Drag to reorder" type="button">::</button>',
+        `<div class="item-row" data-item-id="${escapeHtml(item.id)}">`,
         `<select data-field="type" data-item-id="${escapeHtml(item.id)}">${typeOptions}</select>`,
         `<input type="text" data-field="entity" data-item-id="${escapeHtml(item.id)}" value="${escapeHtml(item.entity)}" placeholder="entity_id (example: weather.ksgf)">`,
         `<input type="text" data-field="label" data-item-id="${escapeHtml(item.id)}" value="${escapeHtml(item.label)}" placeholder="Optional label">`,
@@ -491,97 +441,185 @@
         `<input type="checkbox" data-field="enabled" data-item-id="${escapeHtml(item.id)}"${checked}>`,
         'Use',
         '</label>',
-        `<button class="btn btn-danger" type="button" data-action="remove-item" data-item-id="${escapeHtml(item.id)}">Remove</button>`,
+        '<div class="row-actions">',
+        `<button class="btn" data-action="move-up" data-item-id="${escapeHtml(item.id)}" ${index === 0 ? 'disabled' : ''}>↑</button>`,
+        `<button class="btn" data-action="move-down" data-item-id="${escapeHtml(item.id)}" ${index === dailyProfile.items.length - 1 ? 'disabled' : ''}>↓</button>`,
+        `<button class="btn btn-danger" data-action="remove-item" data-item-id="${escapeHtml(item.id)}">Remove</button>`,
+        '</div>',
         '</div>'
       ].join('');
     }).join('');
   }
 
-  function renderEditor() {
-    const profile = getSelectedProfile();
-    if (!profile) {
-      ui.editor.hidden = true;
-      ui.emptyState.hidden = false;
+  function renderMessageSection() {
+    const messageProfile = getMessageProfile();
+    if (!messageProfile) {
+      ui.messageHeadline.value = '';
+      ui.messageBody.value = '';
       return;
     }
 
-    ui.editor.hidden = false;
-    ui.emptyState.hidden = true;
-
-    ui.profileName.value = profile.name;
-    ui.profileEnabled.checked = Boolean(profile.enabled);
-    ui.profileTemplate.innerHTML = state.templates.map((template) => {
-      const selected = template === profile.template ? ' selected' : '';
-      return `<option value="${escapeHtml(template)}"${selected}>${escapeHtml(template)}</option>`;
-    }).join('');
-
-    const isAgendaProfile = profile.template === 'daily_agenda';
-    const isMessageProfile = profile.template === 'message';
-
-    ui.agendaEditor.hidden = !isAgendaProfile;
-    ui.messageEditor.hidden = !isMessageProfile;
-    ui.templateEditor.hidden = isAgendaProfile || isMessageProfile;
-
-    if (isAgendaProfile) {
-      renderItemRows(profile);
-    } else {
-      ui.itemList.innerHTML = '';
-    }
-
-    if (isMessageProfile) {
-      ui.messageBody.value = asRawString(profile.messageBody, '');
-    }
+    ui.messageHeadline.value = asString(messageProfile.name, 'Message');
+    ui.messageBody.value = asRawString(messageProfile.messageBody, '');
   }
 
   function renderAll() {
-    ensureStoreIntegrity();
-    renderProfileList();
-    renderDefaultProfileSelect();
-    renderEditor();
+    ensureSimpleProfiles();
+    renderDailyRows();
+    renderMessageSection();
+    ui.customCss.value = asRawString(state.customCss, '');
     ui.saveBtn.disabled = !state.dirty;
   }
 
-  function reorderItems(items, draggedId, targetId) {
-    const sourceIndex = items.findIndex((item) => item.id === draggedId);
-    const targetIndex = items.findIndex((item) => item.id === targetId);
-    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+  function moveItem(items, itemId, direction) {
+    const index = items.findIndex((item) => item.id === itemId);
+    if (index < 0) {
+      return items;
+    }
+
+    const target = index + direction;
+    if (target < 0 || target >= items.length) {
       return items;
     }
 
     const reordered = [...items];
-    const [moved] = reordered.splice(sourceIndex, 1);
-    reordered.splice(targetIndex, 0, moved);
+    const [item] = reordered.splice(index, 1);
+    reordered.splice(target, 0, item);
     return reordered;
   }
 
-  async function refreshProfiles() {
-    setStatus('Loading profiles...', 'info');
-    const payload = await fetchJson(buildApiUrl('/api/profiles'));
+  function showPreview(blob) {
+    if (state.previewUrl) {
+      URL.revokeObjectURL(state.previewUrl);
+      state.previewUrl = '';
+    }
 
-    state.templates = Array.isArray(payload.templates) && payload.templates.length > 0
-      ? payload.templates
-      : ['daily_agenda', 'message', 'template'];
-    state.itemTypes = Array.isArray(payload.itemTypes) && payload.itemTypes.length > 0
-      ? payload.itemTypes
-      : ['weather', 'sleep', 'calendar', 'battery', 'alert', 'notes'];
-    state.store = {
-      version: Number.isFinite(Number(payload.version)) ? Number(payload.version) : 1,
-      updatedAt: asString(payload.updatedAt, ''),
-      defaultDailyAgendaProfileId: asString(payload.defaultDailyAgendaProfileId, ''),
-      profiles: Array.isArray(payload.profiles) ? payload.profiles : []
-    };
-
-    ensureStoreIntegrity();
-    setDirty(false);
-    setStatus(`Loaded ${state.store.profiles.length} profile(s).`, 'success');
-    renderAll();
+    const url = URL.createObjectURL(blob);
+    state.previewUrl = url;
+    ui.previewImage.src = url;
+    ui.previewImage.hidden = false;
+    ui.previewEmpty.hidden = true;
   }
 
-  async function saveProfiles() {
-    ensureStoreIntegrity();
-    setStatus('Saving profiles...', 'info');
+  async function previewDailyAgenda() {
+    const dailyProfile = getDailyProfile();
+    if (!dailyProfile) {
+      throw new Error('No daily agenda profile configured');
+    }
 
-    const payload = await fetchJson(buildApiUrl('/api/profiles'), {
+    const blob = await fetchImageBlob(buildApiUrl('/preview/daily-agenda'), {
+      profileId: dailyProfile.id,
+      title: 'Daily Agenda Preview',
+      subtitle: 'Today',
+      source: 'auto'
+    });
+    showPreview(blob);
+  }
+
+  async function previewMessage() {
+    const messageProfile = getMessageProfile();
+    if (!messageProfile) {
+      throw new Error('No message profile configured');
+    }
+
+    const blob = await fetchImageBlob(buildApiUrl('/preview/message'), {
+      profileId: messageProfile.id
+    });
+    showPreview(blob);
+  }
+
+  async function saveIfDirty() {
+    if (!state.dirty) {
+      return;
+    }
+
+    await saveSettings();
+  }
+
+  async function printDailyAgenda() {
+    const dailyProfile = getDailyProfile();
+    if (!dailyProfile) {
+      throw new Error('No daily agenda profile configured');
+    }
+
+    await saveIfDirty();
+    const response = await fetchJson(buildApiUrl('/print/daily-agenda'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        profileId: dailyProfile.id,
+        title: 'Daily Agenda',
+        subtitle: 'Today',
+        source: 'auto',
+        print: {
+          feedLines: 3,
+          cut: true
+        }
+      })
+    });
+
+    const jobId = response && response.job && response.job.id ? response.job.id : 'unknown-job';
+    setStatus(`Daily agenda sent to printer (${jobId}).`, 'success');
+  }
+
+  async function printMessage() {
+    const messageProfile = getMessageProfile();
+    if (!messageProfile) {
+      throw new Error('No message profile configured');
+    }
+
+    await saveIfDirty();
+    const response = await fetchJson(buildApiUrl('/print/message'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        profileId: messageProfile.id,
+        print: {
+          feedLines: 3,
+          cut: true
+        }
+      })
+    });
+
+    const jobId = response && response.job && response.job.id ? response.job.id : 'unknown-job';
+    setStatus(`Message sent to printer (${jobId}).`, 'success');
+  }
+
+  async function loadSettings() {
+    setStatus('Loading settings...', 'info');
+
+    const [profilesPayload, cssPayload] = await Promise.all([
+      fetchJson(buildApiUrl('/api/profiles')),
+      fetchJson(buildApiUrl('/template/css'))
+    ]);
+
+    state.itemTypes = Array.isArray(profilesPayload.itemTypes) && profilesPayload.itemTypes.length > 0
+      ? profilesPayload.itemTypes
+      : ['weather', 'sleep', 'calendar', 'battery', 'alert', 'notes'];
+
+    state.store = {
+      version: Number.isFinite(Number(profilesPayload.version)) ? Number(profilesPayload.version) : 1,
+      updatedAt: asString(profilesPayload.updatedAt, ''),
+      defaultDailyAgendaProfileId: asString(profilesPayload.defaultDailyAgendaProfileId, ''),
+      profiles: Array.isArray(profilesPayload.profiles) ? profilesPayload.profiles : []
+    };
+
+    state.customCss = asRawString(cssPayload.css, '');
+    ensureSimpleProfiles();
+    setDirty(false);
+    renderAll();
+    setStatus('Settings loaded.', 'success');
+  }
+
+  async function saveSettings() {
+    ensureSimpleProfiles();
+    setStatus('Saving settings...', 'info');
+
+    await fetchJson(buildApiUrl('/api/profiles'), {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
@@ -593,189 +631,31 @@
       })
     });
 
-    state.store = {
-      version: Number.isFinite(Number(payload.version)) ? Number(payload.version) : 1,
-      updatedAt: asString(payload.updatedAt, ''),
-      defaultDailyAgendaProfileId: asString(payload.defaultDailyAgendaProfileId, ''),
-      profiles: Array.isArray(payload.profiles) ? payload.profiles : []
-    };
+    const cssValue = asRawString(ui.customCss.value, '');
+    state.customCss = cssValue;
+    await fetchJson(buildApiUrl('/template/css'), {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        css: cssValue
+      })
+    });
 
     setDirty(false);
-    setStatus('Profiles saved.', 'success');
-    renderAll();
-  }
-
-  function onProfileListClick(event) {
-    const actionEl = event.target.closest('[data-action]');
-    if (!actionEl) {
-      return;
-    }
-
-    const profileId = asString(actionEl.dataset.profileId, '');
-    if (!profileId) {
-      return;
-    }
-
-    if (actionEl.dataset.action === 'select-profile') {
-      state.selectedProfileId = profileId;
-      renderAll();
-      return;
-    }
-
-    if (actionEl.dataset.action === 'remove-profile') {
-      const profile = findProfileById(profileId);
-      if (!profile) {
-        return;
-      }
-
-      const confirmed = window.confirm(`Remove profile "${profile.name}"?`);
-      if (!confirmed) {
-        return;
-      }
-
-      state.store.profiles = state.store.profiles.filter((entry) => entry.id !== profileId);
-      if (state.selectedProfileId === profileId) {
-        state.selectedProfileId = state.store.profiles.length > 0 ? state.store.profiles[0].id : '';
-      }
-
-      setDirty(true);
-      renderAll();
-    }
-  }
-
-  function onProfileFieldChanged(event) {
-    const profile = getSelectedProfile();
-    if (!profile) {
-      return;
-    }
-
-    if (event.target === ui.profileName) {
-      profile.name = asString(ui.profileName.value, profile.name);
-      setDirty(true);
-      renderProfileList();
-      return;
-    }
-
-    if (event.target === ui.profileTemplate) {
-      const previousTemplate = profile.template;
-      profile.template = asString(ui.profileTemplate.value, 'daily_agenda');
-
-      if (previousTemplate === 'daily_agenda' && profile.template !== 'daily_agenda') {
-        if (state.store.defaultDailyAgendaProfileId === profile.id) {
-          const nextDaily = state.store.profiles.find((entry) => {
-            return entry.template === 'daily_agenda' && entry.id !== profile.id;
-          });
-          state.store.defaultDailyAgendaProfileId = nextDaily ? nextDaily.id : '';
-        }
-      }
-
-      if (profile.template === 'daily_agenda' && !state.store.defaultDailyAgendaProfileId) {
-        state.store.defaultDailyAgendaProfileId = profile.id;
-      }
-
-      setDirty(true);
-      renderAll();
-      return;
-    }
-
-    if (event.target === ui.profileEnabled) {
-      profile.enabled = Boolean(ui.profileEnabled.checked);
-      setDirty(true);
-      renderProfileList();
-    }
-  }
-
-  function onMessageBodyInput() {
-    const profile = getSelectedProfile();
-    if (!profile || profile.template !== 'message') {
-      return;
-    }
-
-    profile.messageBody = asRawString(ui.messageBody.value, '');
-    setDirty(true);
-  }
-
-  function onAddProfile() {
-    const profile = createEmptyProfile();
-    state.store.profiles.push(profile);
-    state.selectedProfileId = profile.id;
-
-    if (profile.template === 'daily_agenda' && !state.store.defaultDailyAgendaProfileId) {
-      state.store.defaultDailyAgendaProfileId = profile.id;
-    }
-
-    setDirty(true);
-    renderAll();
-  }
-
-  function onDefaultDailyProfileChanged() {
-    state.store.defaultDailyAgendaProfileId = asString(ui.defaultDailyProfile.value, '');
-    setDirty(true);
-    renderProfileList();
+    setStatus('Settings saved.', 'success');
   }
 
   function onAddItem() {
-    const profile = getSelectedProfile();
-    if (!profile) {
+    const dailyProfile = getDailyProfile();
+    if (!dailyProfile) {
       return;
     }
 
-    if (profile.template !== 'daily_agenda') {
-      setStatus('Data-source items are only available for daily_agenda profiles.', 'warning');
-      return;
-    }
-
-    profile.items.push(createEmptyItem());
+    dailyProfile.items.push(createEmptyItem());
     setDirty(true);
-    renderItemRows(profile);
-  }
-
-  function updateItemField(itemId, fieldName, fieldValue) {
-    const profile = getSelectedProfile();
-    if (!profile || profile.template !== 'daily_agenda') {
-      return;
-    }
-
-    const item = profile.items.find((entry) => entry.id === itemId);
-    if (!item) {
-      return;
-    }
-
-    if (fieldName === 'enabled') {
-      item.enabled = Boolean(fieldValue);
-      return;
-    }
-
-    if (fieldName === 'type') {
-      item.type = asString(fieldValue, item.type).toLowerCase();
-      return;
-    }
-
-    if (fieldName === 'entity') {
-      item.entity = asString(fieldValue, '');
-      return;
-    }
-
-    if (fieldName === 'label') {
-      item.label = asString(fieldValue, '');
-    }
-  }
-
-  function onItemListClick(event) {
-    const actionEl = event.target.closest('[data-action]');
-    if (!actionEl || actionEl.dataset.action !== 'remove-item') {
-      return;
-    }
-
-    const profile = getSelectedProfile();
-    if (!profile || profile.template !== 'daily_agenda') {
-      return;
-    }
-
-    const itemId = asString(actionEl.dataset.itemId, '');
-    profile.items = profile.items.filter((item) => item.id !== itemId);
-    setDirty(true);
-    renderItemRows(profile);
+    renderDailyRows();
   }
 
   function onItemListInput(event) {
@@ -784,104 +664,110 @@
       return;
     }
 
-    const field = asString(target.dataset.field, '');
     const itemId = asString(target.dataset.itemId, '');
-    if (!field || !itemId) {
+    const field = asString(target.dataset.field, '');
+    if (!itemId || !field) {
+      return;
+    }
+
+    const dailyProfile = getDailyProfile();
+    if (!dailyProfile) {
+      return;
+    }
+
+    const item = dailyProfile.items.find((entry) => entry.id === itemId);
+    if (!item) {
       return;
     }
 
     if (field === 'enabled' && target instanceof HTMLInputElement && target.type === 'checkbox') {
-      updateItemField(itemId, field, target.checked);
+      item.enabled = target.checked;
+    } else if (field === 'type') {
+      item.type = asString(target.value, item.type).toLowerCase();
+    } else if (field === 'entity') {
+      item.entity = asString(target.value, '');
+    } else if (field === 'label') {
+      item.label = asString(target.value, '');
+    }
+
+    setDirty(true);
+  }
+
+  function onItemListClick(event) {
+    const actionEl = event.target.closest('[data-action]');
+    if (!actionEl) {
+      return;
+    }
+
+    const itemId = asString(actionEl.dataset.itemId, '');
+    if (!itemId) {
+      return;
+    }
+
+    const dailyProfile = getDailyProfile();
+    if (!dailyProfile) {
+      return;
+    }
+
+    const action = asString(actionEl.dataset.action, '');
+    if (action === 'remove-item') {
+      dailyProfile.items = dailyProfile.items.filter((item) => item.id !== itemId);
       setDirty(true);
+      renderDailyRows();
       return;
     }
 
-    updateItemField(itemId, field, target.value);
+    if (action === 'move-up') {
+      dailyProfile.items = moveItem(dailyProfile.items, itemId, -1);
+      setDirty(true);
+      renderDailyRows();
+      return;
+    }
+
+    if (action === 'move-down') {
+      dailyProfile.items = moveItem(dailyProfile.items, itemId, 1);
+      setDirty(true);
+      renderDailyRows();
+    }
+  }
+
+  function onMessageInput() {
+    const messageProfile = getMessageProfile();
+    if (!messageProfile) {
+      return;
+    }
+
+    messageProfile.name = asString(ui.messageHeadline.value, 'Message');
+    messageProfile.messageBody = asRawString(ui.messageBody.value, '');
     setDirty(true);
-
-    if (field === 'type') {
-      const profile = getSelectedProfile();
-      renderItemRows(profile);
-    }
   }
 
-  function clearDragStyles() {
-    ui.itemList.querySelectorAll('.item-row').forEach((row) => {
-      row.classList.remove('is-dragging');
-      row.classList.remove('is-drop-target');
-    });
-  }
-
-  function onItemDragStart(event) {
-    const row = event.target.closest('.item-row');
-    if (!row) {
-      return;
-    }
-
-    state.draggingItemId = asString(row.dataset.itemId, '');
-    row.classList.add('is-dragging');
-    if (event.dataTransfer) {
-      event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', state.draggingItemId);
-    }
-  }
-
-  function onItemDragOver(event) {
-    const row = event.target.closest('.item-row');
-    if (!row || !state.draggingItemId) {
-      return;
-    }
-
-    event.preventDefault();
-    const targetItemId = asString(row.dataset.itemId, '');
-    if (targetItemId && targetItemId !== state.draggingItemId) {
-      row.classList.add('is-drop-target');
-    }
-  }
-
-  function onItemDragLeave(event) {
-    const row = event.target.closest('.item-row');
-    if (!row) {
-      return;
-    }
-
-    row.classList.remove('is-drop-target');
-  }
-
-  function onItemDrop(event) {
-    const row = event.target.closest('.item-row');
-    if (!row || !state.draggingItemId) {
-      return;
-    }
-
-    event.preventDefault();
-    const profile = getSelectedProfile();
-    if (!profile || profile.template !== 'daily_agenda') {
-      clearDragStyles();
-      return;
-    }
-
-    const targetItemId = asString(row.dataset.itemId, '');
-    if (!targetItemId || targetItemId === state.draggingItemId) {
-      clearDragStyles();
-      return;
-    }
-
-    profile.items = reorderItems(profile.items, state.draggingItemId, targetItemId);
+  function onCustomCssInput() {
+    state.customCss = asRawString(ui.customCss.value, '');
     setDirty(true);
-    clearDragStyles();
-    renderItemRows(profile);
   }
 
-  function onItemDragEnd() {
-    state.draggingItemId = '';
-    clearDragStyles();
+  function cacheDom() {
+    ui.reloadBtn = document.getElementById('reload-btn');
+    ui.saveBtn = document.getElementById('save-btn');
+    ui.addItemBtn = document.getElementById('add-item-btn');
+    ui.itemList = document.getElementById('item-list');
+    ui.messageHeadline = document.getElementById('message-headline');
+    ui.messageBody = document.getElementById('message-body');
+    ui.customCss = document.getElementById('custom-css');
+    ui.previewDailyBtn = document.getElementById('preview-daily-btn');
+    ui.printDailyBtn = document.getElementById('print-daily-btn');
+    ui.previewMessageBtn = document.getElementById('preview-message-btn');
+    ui.printMessageBtn = document.getElementById('print-message-btn');
+    ui.previewImage = document.getElementById('preview-image');
+    ui.previewEmpty = document.getElementById('preview-empty');
+    ui.statusBar = document.getElementById('status-bar');
   }
 
   function bindEvents() {
     ui.reloadBtn.addEventListener('click', async () => {
       try {
-        await refreshProfiles();
+        await loadSettings();
       } catch (error) {
         setStatus(`Reload failed: ${error.message}`, 'error');
       }
@@ -889,51 +775,58 @@
 
     ui.saveBtn.addEventListener('click', async () => {
       try {
-        await saveProfiles();
+        await saveSettings();
       } catch (error) {
         setStatus(`Save failed: ${error.message}`, 'error');
       }
     });
 
-    ui.addProfileBtn.addEventListener('click', onAddProfile);
-    ui.profileList.addEventListener('click', onProfileListClick);
-    ui.profileName.addEventListener('input', onProfileFieldChanged);
-    ui.profileTemplate.addEventListener('change', onProfileFieldChanged);
-    ui.profileEnabled.addEventListener('change', onProfileFieldChanged);
-    ui.defaultDailyProfile.addEventListener('change', onDefaultDailyProfileChanged);
     ui.addItemBtn.addEventListener('click', onAddItem);
-    ui.messageBody.addEventListener('input', onMessageBodyInput);
-
-    ui.itemList.addEventListener('click', onItemListClick);
     ui.itemList.addEventListener('input', onItemListInput);
     ui.itemList.addEventListener('change', onItemListInput);
+    ui.itemList.addEventListener('click', onItemListClick);
 
-    ui.itemList.addEventListener('dragstart', onItemDragStart);
-    ui.itemList.addEventListener('dragover', onItemDragOver);
-    ui.itemList.addEventListener('dragleave', onItemDragLeave);
-    ui.itemList.addEventListener('drop', onItemDrop);
-    ui.itemList.addEventListener('dragend', onItemDragEnd);
-  }
+    ui.messageHeadline.addEventListener('input', onMessageInput);
+    ui.messageBody.addEventListener('input', onMessageInput);
+    ui.customCss.addEventListener('input', onCustomCssInput);
 
-  function cacheDom() {
-    ui.profileList = document.getElementById('profile-list');
-    ui.addProfileBtn = document.getElementById('add-profile-btn');
-    ui.saveBtn = document.getElementById('save-btn');
-    ui.reloadBtn = document.getElementById('reload-btn');
-    ui.statusBar = document.getElementById('status-bar');
-    ui.editor = document.getElementById('editor');
-    ui.emptyState = document.getElementById('empty-state');
-    ui.profileName = document.getElementById('profile-name');
-    ui.profileTemplate = document.getElementById('profile-template');
-    ui.profileEnabled = document.getElementById('profile-enabled');
-    ui.defaultDailyField = document.getElementById('default-daily-field');
-    ui.defaultDailyProfile = document.getElementById('default-daily-profile');
-    ui.agendaEditor = document.getElementById('agenda-editor');
-    ui.messageEditor = document.getElementById('message-editor');
-    ui.templateEditor = document.getElementById('template-editor');
-    ui.messageBody = document.getElementById('message-body');
-    ui.addItemBtn = document.getElementById('add-item-btn');
-    ui.itemList = document.getElementById('item-list');
+    ui.previewDailyBtn.addEventListener('click', async () => {
+      try {
+        setStatus('Generating daily agenda preview...', 'info');
+        await previewDailyAgenda();
+        setStatus('Daily agenda preview updated.', 'success');
+      } catch (error) {
+        setStatus(`Preview failed: ${error.message}`, 'error');
+      }
+    });
+
+    ui.previewMessageBtn.addEventListener('click', async () => {
+      try {
+        setStatus('Generating message preview...', 'info');
+        await previewMessage();
+        setStatus('Message preview updated.', 'success');
+      } catch (error) {
+        setStatus(`Preview failed: ${error.message}`, 'error');
+      }
+    });
+
+    ui.printDailyBtn.addEventListener('click', async () => {
+      try {
+        setStatus('Sending daily agenda to printer...', 'info');
+        await printDailyAgenda();
+      } catch (error) {
+        setStatus(`Print failed: ${error.message}`, 'error');
+      }
+    });
+
+    ui.printMessageBtn.addEventListener('click', async () => {
+      try {
+        setStatus('Sending message to printer...', 'info');
+        await printMessage();
+      } catch (error) {
+        setStatus(`Print failed: ${error.message}`, 'error');
+      }
+    });
   }
 
   async function init() {
@@ -943,7 +836,7 @@
     setDirty(false);
 
     try {
-      await refreshProfiles();
+      await loadSettings();
     } catch (error) {
       setStatus(`Initial load failed: ${error.message}`, 'error');
     }

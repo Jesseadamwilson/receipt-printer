@@ -2,6 +2,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright-core');
 
+function asString(value, fallback = '') {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  const result = String(value);
+  return result;
+}
+
 function escapeHtml(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -34,23 +43,6 @@ function buildFooterHtml(data) {
   return `<footer class="footer">${label}</footer>`;
 }
 
-function renderTemplateString(templateHtml, data) {
-  const map = {
-    headline: escapeHtml(data.headline || ''),
-    content_html: buildContentHtml(Array.isArray(data.lines) ? data.lines : []),
-    printedAt: escapeHtml(data.printedAt || ''),
-    header_html: buildHeaderHtml(data),
-    footer_html: buildFooterHtml(data)
-  };
-
-  return templateHtml
-    .replace('{{header_html}}', map.header_html)
-    .replace('{{headline}}', map.headline)
-    .replace('{{content_html}}', map.content_html)
-    .replace('{{printedAt}}', map.printedAt)
-    .replace('{{footer_html}}', map.footer_html);
-}
-
 function resolveTemplatePath(config) {
   const candidates = Array.isArray(config.templatePaths) && config.templatePaths.length > 0
     ? config.templatePaths
@@ -67,17 +59,86 @@ function resolveTemplatePath(config) {
   );
 }
 
-async function renderTemplateToPng(config, data) {
+function resolveCustomCssPath(config) {
+  const configured = asString(config.customCssPath, '').trim();
+  if (configured) {
+    return path.isAbsolute(configured)
+      ? configured
+      : path.resolve(process.cwd(), configured);
+  }
+
+  const fallback = path.resolve(process.cwd(), 'templates', 'custom.css');
+  return fallback;
+}
+
+function readCustomCss(config) {
+  const cssPath = resolveCustomCssPath(config);
+  if (!fs.existsSync(cssPath)) {
+    return {
+      path: cssPath,
+      css: ''
+    };
+  }
+
+  return {
+    path: cssPath,
+    css: fs.readFileSync(cssPath, 'utf8')
+  };
+}
+
+function injectCustomCss(templateHtml, customCss) {
+  const css = asString(customCss, '').trim();
+  if (!css) {
+    return templateHtml.replace('{{custom_css_block}}', '');
+  }
+
+  const block = `<style id="receipt-custom-css">\n${css}\n</style>`;
+
+  if (templateHtml.includes('{{custom_css_block}}')) {
+    return templateHtml.replace('{{custom_css_block}}', block);
+  }
+
+  if (templateHtml.includes('</head>')) {
+    return templateHtml.replace('</head>', `${block}\n</head>`);
+  }
+
+  return `${block}\n${templateHtml}`;
+}
+
+function renderTemplateString(templateHtml, data, customCss = '') {
+  const map = {
+    headline: escapeHtml(data.headline || ''),
+    content_html: buildContentHtml(Array.isArray(data.lines) ? data.lines : []),
+    printedAt: escapeHtml(data.printedAt || ''),
+    header_html: buildHeaderHtml(data),
+    footer_html: buildFooterHtml(data)
+  };
+
+  const rendered = templateHtml
+    .replace('{{header_html}}', map.header_html)
+    .replace('{{headline}}', map.headline)
+    .replace('{{content_html}}', map.content_html)
+    .replace('{{printedAt}}', map.printedAt)
+    .replace('{{footer_html}}', map.footer_html);
+
+  return injectCustomCss(rendered, customCss);
+}
+
+async function renderTemplateToPng(config, data, options = {}) {
   const templatePath = resolveTemplatePath(config);
   const templateHtml = fs.readFileSync(templatePath, 'utf8');
-  const html = renderTemplateString(templateHtml, data);
+  const { css: customCss } = readCustomCss(config);
+  const html = renderTemplateString(templateHtml, data, customCss);
 
   if (!config.chromiumPath) {
     throw new Error('Chromium path not found. Set CHROMIUM_PATH in .env');
   }
 
   fs.mkdirSync(config.outputDir, { recursive: true });
-  const outputPath = path.join(config.outputDir, 'rendered.png');
+  const requestedOutput = asString(options.outputPath, '').trim();
+  const outputPath = requestedOutput
+    ? (path.isAbsolute(requestedOutput) ? requestedOutput : path.resolve(process.cwd(), requestedOutput))
+    : path.join(config.outputDir, 'rendered.png');
 
   const browser = await chromium.launch({
     executablePath: config.chromiumPath,
@@ -89,7 +150,7 @@ async function renderTemplateToPng(config, data) {
     const page = await browser.newPage({
       viewport: {
         width: config.paperWidth,
-        height: 1400
+        height: 1600
       }
     });
 
@@ -112,5 +173,9 @@ async function renderTemplateToPng(config, data) {
 }
 
 module.exports = {
-  renderTemplateToPng
+  renderTemplateToPng,
+  renderTemplateString,
+  resolveTemplatePath,
+  readCustomCss,
+  resolveCustomCssPath
 };

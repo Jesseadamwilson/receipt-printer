@@ -111,6 +111,10 @@ function loadConfig() {
     printTimeoutMs: parseIntEnv('PRINT_TIMEOUT_MS', 15000),
     queueMaxRetries: parseIntEnv('QUEUE_MAX_RETRIES', 2),
     queueRetryDelayMs: parseIntEnv('QUEUE_RETRY_DELAY_MS', 1000),
+    customCssPath: parseStringEnv(
+      'CUSTOM_CSS_PATH',
+      path.resolve(process.cwd(), 'templates', 'custom.css')
+    ),
     haApiBaseUrl: parseStringEnv('HA_API_BASE_URL', 'http://supervisor/core/api'),
     haApiToken: parseStringEnv('HA_API_TOKEN', process.env.SUPERVISOR_TOKEN || ''),
     agendaCalendarEntities: parseListEnv('AGENDA_CALENDAR_ENTITIES', []),
