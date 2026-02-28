@@ -254,11 +254,19 @@ function buildDeviceBatteryItemsHtml(batteries) {
     return '';
   }
 
+  const radius = 25;
+  const circumference = 2 * Math.PI * radius;
+
   return items.map((item) => {
+    const dash = (Math.max(0, Math.min(100, Number(item.percent) || 0)) / 100) * circumference;
+
     return [
       `<article class="device-gauge" style="--battery-level:${item.percent};" title="${escapeHtml(`${item.name} ${item.level}`.trim())}">`,
-      '<div class="device-gauge-track"></div>',
-      '<div class="device-gauge-fill"></div>',
+      '<svg class="device-gauge-svg" viewBox="0 0 64 64" aria-hidden="true">',
+      '<circle class="device-gauge-outline-ring" cx="32" cy="32" r="25"></circle>',
+      '<circle class="device-gauge-track-ring" cx="32" cy="32" r="25"></circle>',
+      `<circle class="device-gauge-progress-ring" cx="32" cy="32" r="25" style="stroke-dasharray:${dash.toFixed(2)} ${circumference.toFixed(2)};"></circle>`,
+      '</svg>',
       '<div class="device-gauge-core">',
       `<img class="device-gauge-icon" src="${escapeHtml(item.icon)}" alt="${escapeHtml(item.name)}">`,
       '</div>',

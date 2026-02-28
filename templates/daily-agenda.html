@@ -140,33 +140,47 @@
         width: 62px;
         height: 62px;
         position: relative;
-        --battery-level: 0;
       }
 
-      .device-gauge-track,
-      .device-gauge-fill {
-        position: absolute;
-        inset: 0;
-        border-radius: 50%;
+      .device-gauge-svg {
+        width: 62px;
+        height: 62px;
+        display: block;
       }
 
-      .device-gauge-track {
-        background: conic-gradient(var(--muted) 100%, var(--muted) 0);
+      .device-gauge-outline-ring,
+      .device-gauge-track-ring,
+      .device-gauge-progress-ring {
+        fill: none;
       }
 
-      .device-gauge-fill {
-        background: conic-gradient(var(--ink) calc(var(--battery-level) * 1%), transparent 0);
+      .device-gauge-outline-ring {
+        stroke: var(--ink);
+        stroke-width: 10px;
+      }
+
+      .device-gauge-track-ring {
+        stroke: var(--paper);
+        stroke-width: 7px;
+      }
+
+      .device-gauge-progress-ring {
+        stroke: var(--ink);
+        stroke-width: 7px;
+        stroke-linecap: round;
         transform: rotate(-90deg);
+        transform-origin: 32px 32px;
       }
 
       .device-gauge-core {
         position: absolute;
-        inset: 7px;
+        inset: 9px;
         border-radius: 50%;
         background: var(--paper);
         display: flex;
         align-items: center;
         justify-content: center;
+        border: 2px solid var(--ink);
       }
 
       .device-gauge-icon {

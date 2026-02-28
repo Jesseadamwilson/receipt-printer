@@ -182,6 +182,14 @@ function inferMimeType(filePath) {
       return 'image/gif';
     case '.bmp':
       return 'image/bmp';
+    case '.otf':
+      return 'font/otf';
+    case '.ttf':
+      return 'font/ttf';
+    case '.woff':
+      return 'font/woff';
+    case '.woff2':
+      return 'font/woff2';
     default:
       return '';
   }
@@ -220,7 +228,7 @@ function uniquePaths(paths) {
   return result;
 }
 
-function resolveImagePathCandidates(src, templatePath) {
+function resolveAssetPathCandidates(src, templatePath) {
   const clean = stripQueryAndHash(src);
   if (!clean) {
     return [];
@@ -257,6 +265,7 @@ function resolveImagePathCandidates(src, templatePath) {
     const suffix = normalized.slice(assetsIndex + 'assets/'.length);
     if (suffix) {
       candidates.push(path.join(process.cwd(), 'public', 'assets', suffix));
+      candidates.push(path.join(process.cwd(), 'templates', 'assets', suffix));
     }
   }
 
@@ -266,13 +275,14 @@ function resolveImagePathCandidates(src, templatePath) {
 
   if (normalized.startsWith('assets/')) {
     candidates.push(path.join(process.cwd(), 'public', normalized));
+    candidates.push(path.join(process.cwd(), 'templates', normalized));
   }
 
   return uniquePaths(candidates);
 }
 
-function findExistingImagePath(src, templatePath) {
-  const candidates = resolveImagePathCandidates(src, templatePath);
+function findExistingAssetPath(src, templatePath) {
+  const candidates = resolveAssetPathCandidates(src, templatePath);
   for (const candidate of candidates) {
     try {
       if (!fs.existsSync(candidate)) {
@@ -301,25 +311,37 @@ function toDataUri(filePath) {
   return `data:${mime};base64,${bytes.toString('base64')}`;
 }
 
-function inlineLocalImageSrc(src, templatePath) {
+function inlineLocalAssetSrc(src, templatePath) {
   if (isExternalSrc(src)) {
     return src;
   }
 
-  const imagePath = findExistingImagePath(src, templatePath);
-  if (!imagePath) {
+  const assetPath = findExistingAssetPath(src, templatePath);
+  if (!assetPath) {
     return src;
   }
 
-  const dataUri = toDataUri(imagePath);
+  const dataUri = toDataUri(assetPath);
   return dataUri || src;
 }
 
 function inlineTemplateImages(templateHtml, templatePath) {
   const imageSrcPattern = /(<img\b[^>]*?\bsrc\s*=\s*)(["'])([^"']+)\2/gi;
   return templateHtml.replace(imageSrcPattern, (full, prefix, quote, src) => {
-    const inlinedSrc = inlineLocalImageSrc(src, templatePath);
+    const inlinedSrc = inlineLocalAssetSrc(src, templatePath);
     return `${prefix}${quote}${inlinedSrc}${quote}`;
+  });
+}
+
+function inlineTemplateCssUrls(templateHtml, templatePath) {
+  const cssUrlPattern = /url\(\s*(["']?)([^"')]+)\1\s*\)/gi;
+  return templateHtml.replace(cssUrlPattern, (full, quote, assetPath) => {
+    const inlinedPath = inlineLocalAssetSrc(assetPath, templatePath);
+    if (inlinedPath === assetPath) {
+      return full;
+    }
+
+    return `url("${inlinedPath}")`;
   });
 }
 
@@ -449,9 +471,10 @@ async function renderTemplateToPng(config, data, options = {}) {
   );
   const templateHtml = fs.readFileSync(templatePath, 'utf8');
   const { css: customCss } = readCustomCss(config);
-  const htmlWithInlineImages = inlineTemplateImages(templateHtml, templatePath);
-  const htmlWithBase = injectTemplateBaseHref(htmlWithInlineImages, templatePath);
-  const html = renderTemplateString(htmlWithBase, data, customCss);
+  const renderedHtml = renderTemplateString(templateHtml, data, customCss);
+  const htmlWithInlinedCssUrls = inlineTemplateCssUrls(renderedHtml, templatePath);
+  const htmlWithInlineImages = inlineTemplateImages(htmlWithInlinedCssUrls, templatePath);
+  const html = injectTemplateBaseHref(htmlWithInlineImages, templatePath);
 
   if (!config.chromiumPath) {
     throw new Error('Chromium path not found. Set CHROMIUM_PATH in .env');
