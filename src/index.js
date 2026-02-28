@@ -154,6 +154,231 @@ function formatBatteryLine(battery) {
   return `${name}: ${level}`;
 }
 
+function extractBatteryPercent(value) {
+  const normalized = normalizeBatteryLevel(value);
+  if (!normalized) {
+    return 0;
+  }
+
+  const numeric = Number.parseFloat(normalized.replace('%', '').trim());
+  if (!Number.isFinite(numeric)) {
+    return 0;
+  }
+
+  if (numeric < 0) {
+    return 0;
+  }
+  if (numeric > 100) {
+    return 100;
+  }
+
+  return Math.round(numeric);
+}
+
+function pickBatteryDeviceIcon(nameOrEntity) {
+  const value = asString(nameOrEntity, '').toLowerCase();
+  if (!value) {
+    return 'assets/power-icon.svg';
+  }
+
+  if (value.includes('iphone')) {
+    return 'assets/iphone.svg';
+  }
+  if (value.includes('ipad')) {
+    return 'assets/ipad.svg';
+  }
+  if (value.includes('macbook') || value.includes('mac book') || value.includes('laptop')) {
+    return 'assets/macbook.svg';
+  }
+  if (value.includes('airpods') || value.includes('air pods') || value.includes('earbud')) {
+    return 'assets/airpods.svg';
+  }
+
+  return 'assets/power-icon.svg';
+}
+
+function buildBatteryItemModel(battery, index = 0) {
+  if (!battery) {
+    return {
+      key: `battery-${index}`,
+      name: 'Device',
+      level: '',
+      percent: 0,
+      icon: 'assets/power-icon.svg'
+    };
+  }
+
+  if (typeof battery === 'string') {
+    const raw = asString(battery, '');
+    const percent = extractBatteryPercent(raw);
+    return {
+      key: `battery-${index}`,
+      name: raw || `Device ${index + 1}`,
+      level: normalizeBatteryLevel(raw),
+      percent,
+      icon: pickBatteryDeviceIcon(raw)
+    };
+  }
+
+  if (typeof battery !== 'object') {
+    return {
+      key: `battery-${index}`,
+      name: `Device ${index + 1}`,
+      level: '',
+      percent: 0,
+      icon: 'assets/power-icon.svg'
+    };
+  }
+
+  const name = asString(
+    battery.name || battery.label || battery.friendlyName || battery.entity,
+    `Device ${index + 1}`
+  );
+  const rawLevel = battery.level !== undefined ? battery.level : battery.state;
+  const level = normalizeBatteryLevel(rawLevel);
+  const percent = extractBatteryPercent(rawLevel);
+  const entity = asString(battery.entity, '');
+
+  return {
+    key: `battery-${index}`,
+    name,
+    level,
+    percent,
+    icon: pickBatteryDeviceIcon(`${name} ${entity}`)
+  };
+}
+
+function buildDeviceBatteryItemsHtml(batteries) {
+  const items = Array.isArray(batteries) ? batteries : [];
+  if (items.length === 0) {
+    return '';
+  }
+
+  return items.map((item) => {
+    return [
+      `<article class="device-gauge" style="--battery-level:${item.percent};" title="${escapeHtml(`${item.name} ${item.level}`.trim())}">`,
+      '<div class="device-gauge-track"></div>',
+      '<div class="device-gauge-fill"></div>',
+      '<div class="device-gauge-core">',
+      `<img class="device-gauge-icon" src="${escapeHtml(item.icon)}" alt="${escapeHtml(item.name)}">`,
+      '</div>',
+      '</article>'
+    ].join('');
+  }).join('\n');
+}
+
+function compactMeridiem(timeText) {
+  const value = asString(timeText, '');
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .replace(/\s+/g, '')
+    .toUpperCase();
+}
+
+function buildLeaderRowsHtml(rows, className) {
+  const source = Array.isArray(rows) ? rows : [];
+  if (source.length === 0) {
+    return '';
+  }
+
+  return source.map((row) => {
+    const left = asString(row.left, '');
+    const right = asString(row.right, '');
+    if (!left && !right) {
+      return '';
+    }
+
+    return [
+      `<div class="leader-row ${className}">`,
+      `<span class="leader-left">${escapeHtml(left)}</span>`,
+      '<span class="leader-dots"></span>',
+      `<span class="leader-right">${escapeHtml(right)}</span>`,
+      '</div>'
+    ].join('');
+  }).filter(Boolean).join('\n');
+}
+
+function buildCalendarRowsHtml(events) {
+  const source = Array.isArray(events) ? events : [];
+  const rows = source.map((event) => {
+    if (!event || typeof event !== 'object') {
+      return null;
+    }
+
+    const time = compactMeridiem(event.time);
+    const title = asString(event.title, '');
+    const location = asString(event.location, '');
+    const right = location ? `${title} | ${location}`.trim() : title;
+    if (!time && !right) {
+      return null;
+    }
+
+    return {
+      left: time || '--',
+      right: right || 'Event'
+    };
+  }).filter(Boolean);
+
+  return buildLeaderRowsHtml(rows, 'calendar-row');
+}
+
+function splitAlertLine(value) {
+  const text = asString(value, '');
+  if (!text) {
+    return null;
+  }
+
+  const colonIndex = text.indexOf(':');
+  if (colonIndex > 0 && colonIndex < text.length - 1) {
+    return {
+      left: text.slice(0, colonIndex).trim(),
+      right: text.slice(colonIndex + 1).trim()
+    };
+  }
+
+  const dashIndex = text.indexOf(' - ');
+  if (dashIndex > 0 && dashIndex < text.length - 1) {
+    return {
+      left: text.slice(0, dashIndex).trim(),
+      right: text.slice(dashIndex + 3).trim()
+    };
+  }
+
+  return {
+    left: 'ALERT',
+    right: text
+  };
+}
+
+function buildNotificationRowsHtml(alerts, notesLines) {
+  const rows = [];
+
+  const alertValues = Array.isArray(alerts) ? alerts : [];
+  for (const alert of alertValues) {
+    const mapped = splitAlertLine(alert);
+    if (mapped) {
+      rows.push(mapped);
+    }
+  }
+
+  const noteValues = Array.isArray(notesLines) ? notesLines : [];
+  for (const note of noteValues) {
+    const text = asString(note, '');
+    if (!text) {
+      continue;
+    }
+    rows.push({
+      left: 'NOTE',
+      right: text
+    });
+  }
+
+  return buildLeaderRowsHtml(rows, 'notification-row');
+}
+
 function splitMessageLines(value) {
   const raw = asRawString(value, '');
   if (!raw) {
@@ -295,6 +520,7 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
   const events = Array.isArray(source.events) ? source.events : [];
   const eventLines = events.map(formatAgendaEventLine).filter(Boolean);
   const batteries = Array.isArray(source.batteries) ? source.batteries : [];
+  const batteryItems = batteries.map((battery, index) => buildBatteryItemModel(battery, index));
   const batteryLines = batteries.map(formatBatteryLine).filter(Boolean);
   const alerts = Array.isArray(source.alerts)
     ? source.alerts.map((alert) => asString(alert, '')).filter(Boolean)
@@ -312,6 +538,13 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
   const hoursOfSleep = asString(sleep.hours, '');
   const printedAt = asString(template.printedAt, generatedAt.toLocaleString());
   const subtitle = asString(source.subtitle, '');
+  const summaryLabel = asString(source.summaryLabel, 'Summary');
+  const sleepLine = hoursOfSleep ? `${hoursOfSleep} Hours Last Night` : '';
+  const weatherLine = [currentTemp, weatherSummary].filter(Boolean).join(' | ');
+  const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim().toUpperCase();
+  const calendarRowsHtml = buildCalendarRowsHtml(events);
+  const notificationRowsHtml = buildNotificationRowsHtml(alerts, notesLines);
+  const deviceBatteryItemsHtml = buildDeviceBatteryItemsHtml(batteryItems);
 
   return {
     template_type: 'daily_agenda',
@@ -330,15 +563,25 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
     weather_high: weatherHigh,
     weather_low: weatherLow,
     hours_of_sleep: hoursOfSleep,
+    sleep_line: sleepLine,
+    weather_line: weatherLine,
+    summary_label: summaryLabel,
+    date_chip: dateChip,
     todays_calendar_events: eventLines.join('\n'),
     todays_calendar_events_count: String(eventLines.length),
     todays_calendar_events_html: buildListHtml(eventLines, 'events-list', 'event-item'),
+    calendar_rows_html: calendarRowsHtml,
+    calendar_count: String(eventLines.length),
     battery_levels: batteryLines.join('\n'),
     battery_levels_count: String(batteryLines.length),
     battery_levels_html: buildListHtml(batteryLines, 'battery-list', 'battery-item'),
+    device_battery_items_html: deviceBatteryItemsHtml,
+    device_count: String(batteryItems.length),
     alerts: alerts.join('\n'),
     alerts_count: String(alerts.length),
     alerts_html: buildListHtml(alerts, 'alerts-list', 'alert-item'),
+    notification_rows_html: notificationRowsHtml,
+    notifications_count: String(alerts.length + notesLines.length),
     notes: notesText,
     notes_html: buildParagraphHtml(notesLines, 'notes-line'),
     content_text: contentLines.join('\n'),

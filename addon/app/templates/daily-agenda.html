@@ -6,142 +6,273 @@
     <style>
       :root {
         --paper-width: 576px;
+        --ink: #000;
+        --paper: #fff;
+        --muted: #c7c7c7;
       }
-      * { box-sizing: border-box; }
+
+      @font-face {
+        font-family: "HelveticaNeueHeadline";
+        src: url("assets/fonts/helvetica-neue/HelveticaNeueLTStd-BlkExO.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: "GothamBold";
+        src: url("assets/fonts/gotham/Gotham-Bold.otf") format("opentype");
+      }
+
+      @font-face {
+        font-family: "GothamMedium";
+        src: url("assets/fonts/gotham/Gotham-Medium.otf") format("opentype");
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
       body {
         margin: 0;
         width: var(--paper-width);
-        font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        color: #111;
-        background: #fff;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "GothamMedium", ui-sans-serif, system-ui, -apple-system, sans-serif;
       }
+
       .ticket {
-        padding: 20px 22px 18px;
+        padding: 28px 30px 30px;
       }
-      .header {
-        border-bottom: 2px solid #111;
-        margin-bottom: 12px;
-        padding-bottom: 10px;
-        & {
-          .logo {
-            width:100%;
-            height:1in;
-            position: relative;
-            display: grid;
-            grid-template-columns: auto 1fr;
-            align-items: center;
-            justify-content: space-between;
-            & .date {
-              text-align: right;
-            }
-            & svg {
-              height:100%;
-            }
-          }
-        }
+
+      .brand-row {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
       }
-      .title {
-        margin: 0;
-        font-size: 34px;
-        letter-spacing: 0.6px;
+
+      .brand-logo {
+        width: 164px;
+        height: auto;
+      }
+
+      .brand-ornament {
+        width: 58px;
+        height: auto;
+      }
+
+      .summary-chip {
+        margin-top: 18px;
+        border: 2px solid var(--ink);
+        border-radius: 999px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 1.7fr 1fr;
+      }
+
+      .summary-chip-left,
+      .summary-chip-right {
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         text-transform: uppercase;
+        letter-spacing: 0.8px;
       }
-      .subtitle {
-        margin: 6px 0 0;
-        font-size: 24px;
+
+      .summary-chip-left {
+        background: var(--ink);
+        color: var(--paper);
+        font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
+        font-size: 22px;
       }
-      .date {
-        font-weight:600;
-        text-transform: uppercase;
+
+      .summary-chip-right {
+        color: var(--ink);
+        font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
+        font-size: 22px;
       }
-      .meta {
-        margin: 4px 0 0;
+
+      .section-divider {
+        border: 0;
+        border-top: 2px solid var(--ink);
+        margin: 20px 0;
+      }
+
+      .metric-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .metric-left {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 188px;
+      }
+
+      .metric-icon {
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
+      }
+
+      .metric-label {
+        font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
         font-size: 18px;
-      }
-      .section {
-        margin: 14px 0 0;
-      }
-      .section-title {
-        margin: 0 0 6px;
-        font-size: 24px;
-        letter-spacing: 0.4px;
         text-transform: uppercase;
+        letter-spacing: 0.8px;
+        white-space: nowrap;
       }
-      .value {
-        margin: 0;
-        font-size: 28px;
-        line-height: 1.25;
+
+      .metric-value {
+        font-family: "GothamMedium", sans-serif;
+        font-size: 19px;
+        text-align: right;
       }
-      .events-list,
-      .battery-list,
-      .alerts-list {
-        margin: 0;
-        padding: 0;
-        list-style: none;
+
+      .devices-wrap {
+        display: flex;
+        align-items: center;
+        gap: 14px;
       }
-      .event-item,
-      .battery-item,
-      .alert-item,
-      .notes-line {
-        margin: 0 0 8px;
-        font-size: 24px;
-        line-height: 1.25;
+
+      .device-gauge {
+        width: 62px;
+        height: 62px;
+        position: relative;
+        --battery-level: 0;
       }
-      .footer {
-        border-top: 2px solid #111;
-        margin-top: 16px;
-        padding-top: 10px;
-        font-size: 20px;
+
+      .device-gauge-track,
+      .device-gauge-fill {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+      }
+
+      .device-gauge-track {
+        background: conic-gradient(var(--muted) 100%, var(--muted) 0);
+      }
+
+      .device-gauge-fill {
+        background: conic-gradient(var(--ink) calc(var(--battery-level) * 1%), transparent 0);
+        transform: rotate(-90deg);
+      }
+
+      .device-gauge-core {
+        position: absolute;
+        inset: 7px;
+        border-radius: 50%;
+        background: var(--paper);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .device-gauge-icon {
+        width: 30px;
+        height: 30px;
+        object-fit: contain;
+      }
+
+      .list-section {
+        margin-top: 2px;
+      }
+
+      .leader-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        margin: 8px 0;
+      }
+
+      .leader-left {
+        font-family: "GothamBold", sans-serif;
+        font-size: 17px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .leader-dots {
+        flex: 1 1 auto;
+        border-bottom: 2px dotted var(--ink);
+        transform: translateY(-2px);
+        min-width: 12px;
+      }
+
+      .leader-right {
+        font-family: "GothamMedium", sans-serif;
+        font-size: 17px;
+        text-align: right;
+      }
+
+      .notification-row .leader-left {
+        letter-spacing: 1px;
       }
     </style>
     {{custom_css_block}}
   </head>
   <body>
     <section class="ticket ticket--daily-agenda">
-      <header class="header">
-        <div class="logo">
-          <svg id="Layer_2" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 17.06 9.11">
-            <g id="Layer_1-2" data-name="Layer 1">
-              <path d="M4.08,9.11c-1.97,0-3.05-.3-3.62-1C-.04,7.49-.13,6.53.18,5.08l.02-.1h3.64l-.03.15c-.12.54-.21,1.02-.13,1.29.05.21.18.35.65.35.66,0,1.01-.36,1.18-1.23L6.69,0h3.64l-.37,1.75,2.19-1.75h4.91l-4.75,3.47,3.09,5.34h-4.79l-1.51-3.03c-.53,2.06-1.63,3.33-5.01,3.33ZM.4,5.23c-.27,1.32-.19,2.19.25,2.73.51.63,1.54.9,3.42.9,3.4,0,4.35-1.27,4.84-3.47l.08-.34,1.76,3.51h4.2l-2.98-5.16L16.29.25h-4.06l-2.67,2.13.45-2.13h-3.13l-1.14,5.35c-.2.99-.64,1.43-1.43,1.43-.33,0-.77-.06-.89-.54-.08-.3-.01-.73.1-1.26H.4Z"/>
-            </g>
-          </svg>
-          <p class="date">{{day_of_week}}, {{date}}</p>
-        </div>
-        <h1 class="title">{{title}}</h1>
-        <p class="subtitle">{{subtitle}}</p>
+      <header class="brand-row">
+        <img class="brand-logo" src="assets/logo-filled.svg" alt="Brand">
+        <img class="brand-ornament" src="assets/ornament.svg" alt="">
       </header>
 
-      <section class="section section--weather">
-        <h2 class="section-title">Weather</h2>
-        <p class="value">{{weather_summary}} {{current_temp}}</p>
+      <section class="summary-chip">
+        <div class="summary-chip-left">{{date_chip}}</div>
+        <div class="summary-chip-right">{{summary_label}}</div>
       </section>
 
-      <section class="section section--sleep">
-        <h2 class="section-title">Sleep</h2>
-        <p class="value">{{hours_of_sleep}}</p>
+      <section class="metric-row section--sleep">
+        <div class="metric-left">
+          <img class="metric-icon" src="assets/sleep-svgrepo-com.svg" alt="">
+          <h2 class="metric-label">Sleep</h2>
+        </div>
+        <p class="metric-value">{{sleep_line}}</p>
       </section>
 
-      <section class="section section--events">
-        <h2 class="section-title">Events</h2>
-        {{{todays_calendar_events_html}}}
+      <hr class="section-divider">
+
+      <section class="metric-row section--weather">
+        <div class="metric-left">
+          <img class="metric-icon" src="assets/weather-icon.svg" alt="">
+          <h2 class="metric-label">Weather</h2>
+        </div>
+        <p class="metric-value">{{weather_line}}</p>
       </section>
 
-      <section class="section section--battery">
-        <h2 class="section-title">Battery</h2>
-        {{{battery_levels_html}}}
+      <hr class="section-divider">
+
+      <section class="metric-row section--devices">
+        <div class="metric-left">
+          <img class="metric-icon" src="assets/power-icon.svg" alt="">
+          <h2 class="metric-label">Devices</h2>
+        </div>
+        <div class="devices-wrap">
+          {{{device_battery_items_html}}}
+        </div>
       </section>
 
-      <section class="section section--alerts">
-        <h2 class="section-title">Alerts</h2>
-        {{{alerts_html}}}
+      <hr class="section-divider">
+
+      <section class="list-section section--calendar">
+        <div class="metric-left">
+          <img class="metric-icon" src="assets/calendar-icon.svg" alt="">
+          <h2 class="metric-label">Calendar</h2>
+        </div>
+        {{{calendar_rows_html}}}
       </section>
 
-      <section class="section section--notes">
-        <h2 class="section-title">Notes</h2>
-        {{{notes_html}}}
-      </section>
+      <hr class="section-divider">
 
-      <footer class="footer">Printed: {{printed_at}}</footer>
+      <section class="list-section section--notifications">
+        <div class="metric-left">
+          <img class="metric-icon" src="assets/bell-svgrepo-com.svg" alt="">
+          <h2 class="metric-label">Notifications</h2>
+        </div>
+        {{{notification_rows_html}}}
+      </section>
     </section>
   </body>
 </html>
