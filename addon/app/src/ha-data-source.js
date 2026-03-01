@@ -263,9 +263,40 @@ function mapBatteryStateToLine(stateData, entityId) {
     stateData.attributes && stateData.attributes.friendly_name,
     entityId
   );
-  const level = parsePercentish(stateData.state);
+  const attributes = stateData.attributes && typeof stateData.attributes === 'object'
+    ? stateData.attributes
+    : {};
 
-  if (!level || normalizeStateValue(level) === 'unknown') {
+  let level = parsePercentish(stateData.state);
+  const normalizedLevel = normalizeStateValue(level);
+
+  if (!level || normalizedLevel === 'unknown' || normalizedLevel === 'unavailable') {
+    const fallbackCandidates = [
+      attributes.battery_level,
+      attributes.battery,
+      attributes.level,
+      attributes.charge,
+      attributes.charge_level
+    ];
+
+    for (const candidate of fallbackCandidates) {
+      const parsed = parsePercentish(candidate);
+      if (!parsed) {
+        continue;
+      }
+
+      const normalizedParsed = normalizeStateValue(parsed);
+      if (normalizedParsed === 'unknown' || normalizedParsed === 'unavailable') {
+        continue;
+      }
+
+      level = parsed;
+      break;
+    }
+  }
+
+  const normalizedFinal = normalizeStateValue(level);
+  if (!level || normalizedFinal === 'unknown' || normalizedFinal === 'unavailable') {
     return null;
   }
 

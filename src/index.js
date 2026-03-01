@@ -51,6 +51,21 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+function toSentenceCase(value) {
+  const raw = asRawString(value, '');
+  if (!raw) {
+    return '';
+  }
+
+  const normalized = raw.replace(/\s+/g, ' ').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  const lower = normalized.toLowerCase();
+  return lower.charAt(0).toUpperCase() + lower.slice(1);
+}
+
 function buildParagraphHtml(lines, lineClass = 'line') {
   const source = Array.isArray(lines) ? lines : [];
   return source
@@ -92,8 +107,8 @@ function formatAgendaEventLine(event) {
   }
 
   const time = asString(event.time, '');
-  const title = asString(event.title, '');
-  const location = asString(event.location, '');
+  const title = toSentenceCase(event.title);
+  const location = toSentenceCase(event.location);
   const left = [time, title].filter(Boolean).join(' ');
   if (!left && !location) {
     return '';
@@ -286,6 +301,50 @@ function compactMeridiem(timeText) {
     .toUpperCase();
 }
 
+function wrapTextByWordLimits(value, firstLineLimit = 28, otherLineLimit = 36) {
+  const text = toSentenceCase(value);
+  if (!text) {
+    return [];
+  }
+
+  const words = text.split(/\s+/g).filter(Boolean);
+  if (words.length === 0) {
+    return [];
+  }
+
+  const lines = [];
+  let current = '';
+  let currentLimit = Math.max(8, Number(firstLineLimit) || 28);
+
+  for (const word of words) {
+    if (!current) {
+      if (word.length > currentLimit) {
+        lines.push(word);
+        currentLimit = Math.max(8, Number(otherLineLimit) || 36);
+      } else {
+        current = word;
+      }
+      continue;
+    }
+
+    const next = `${current} ${word}`;
+    if (next.length <= currentLimit) {
+      current = next;
+      continue;
+    }
+
+    lines.push(current);
+    current = word;
+    currentLimit = Math.max(8, Number(otherLineLimit) || 36);
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
 function buildLeaderRowsHtml(rows, className) {
   const source = Array.isArray(rows) ? rows : [];
   if (source.length === 0) {
@@ -311,30 +370,50 @@ function buildLeaderRowsHtml(rows, className) {
 
 function buildCalendarRowsHtml(events) {
   const source = Array.isArray(events) ? events : [];
-  const rows = source.map((event) => {
+  if (source.length === 0) {
+    return '';
+  }
+
+  return source.map((event, index) => {
     if (!event || typeof event !== 'object') {
-      return null;
+      return '';
     }
 
-    const time = compactMeridiem(event.time);
-    const title = asString(event.title, '');
-    const location = asString(event.location, '');
-    const right = location ? `${title} | ${location}`.trim() : title;
-    if (!time && !right) {
-      return null;
+    const time = compactMeridiem(event.time) || '--';
+    const title = toSentenceCase(event.title);
+    const location = toSentenceCase(event.location);
+    const fullText = location
+      ? [title || 'Event', location].filter(Boolean).join(' | ')
+      : (title || 'Event');
+    const lines = wrapTextByWordLimits(fullText, 30, 38);
+    if (lines.length === 0) {
+      lines.push('Event');
     }
 
-    return {
-      left: time || '--',
-      right: right || 'Event'
-    };
-  }).filter(Boolean);
+    const firstLine = lines[0];
+    const continuationLines = lines.slice(1);
 
-  return buildLeaderRowsHtml(rows, 'calendar-row');
+    const continuationHtml = continuationLines.map((line) => {
+      return [
+        '<span class="calendar-entry-pad calendar-entry-pad-left" aria-hidden="true"></span>',
+        '<span class="calendar-entry-pad calendar-entry-pad-dots" aria-hidden="true"></span>',
+        `<span class="leader-right calendar-entry-more">${escapeHtml(line)}</span>`
+      ].join('');
+    }).join('');
+
+    return [
+      `<article class="calendar-entry calendar-row" data-index="${index}">`,
+      `<span class="leader-left">${escapeHtml(time)}</span>`,
+      '<span class="leader-dots"></span>',
+      `<span class="leader-right leader-right-first">${escapeHtml(firstLine)}</span>`,
+      continuationHtml,
+      '</article>'
+    ].join('');
+  }).join('\n');
 }
 
 function splitAlertLine(value) {
-  const text = asString(value, '');
+  const text = toSentenceCase(value);
   if (!text) {
     return null;
   }
@@ -356,7 +435,7 @@ function splitAlertLine(value) {
   }
 
   return {
-    left: 'ALERT',
+    left: 'Alert',
     right: text
   };
 }
@@ -374,12 +453,12 @@ function buildNotificationRowsHtml(alerts, notesLines) {
 
   const noteValues = Array.isArray(notesLines) ? notesLines : [];
   for (const note of noteValues) {
-    const text = asString(note, '');
+    const text = toSentenceCase(note);
     if (!text) {
       continue;
     }
     rows.push({
-      left: 'NOTE',
+      left: 'Note',
       right: text
     });
   }
@@ -531,25 +610,25 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
   const batteryItems = batteries.map((battery, index) => buildBatteryItemModel(battery, index));
   const batteryLines = batteries.map(formatBatteryLine).filter(Boolean);
   const alerts = Array.isArray(source.alerts)
-    ? source.alerts.map((alert) => asString(alert, '')).filter(Boolean)
+    ? source.alerts.map((alert) => toSentenceCase(alert)).filter(Boolean)
     : [];
-  const notesText = asString(source.notes, '');
+  const notesText = toSentenceCase(source.notes);
   const notesLines = notesText
-    ? notesText.split(/\r?\n/g).map((line) => asString(line, '')).filter(Boolean)
+    ? notesText.split(/\r?\n/g).map((line) => toSentenceCase(line)).filter(Boolean)
     : [];
   const contentLines = Array.isArray(template.lines) ? template.lines : [];
 
   const currentTemp = asString(weather.temp, '');
-  const weatherSummary = asString(weather.summary, '');
+  const weatherSummary = toSentenceCase(weather.summary);
   const weatherHigh = asString(weather.high, '');
   const weatherLow = asString(weather.low, '');
   const hoursOfSleep = asString(sleep.hours, '');
   const printedAt = asString(template.printedAt, generatedAt.toLocaleString());
-  const subtitle = asString(source.subtitle, '');
-  const summaryLabel = asString(source.summaryLabel, 'Summary');
-  const sleepLine = hoursOfSleep ? `${hoursOfSleep} Hours Last Night` : '';
+  const subtitle = toSentenceCase(source.subtitle);
+  const summaryLabel = toSentenceCase(source.summaryLabel || 'Summary');
+  const sleepLine = hoursOfSleep ? `${hoursOfSleep} hours last night` : '';
   const weatherLine = [currentTemp, weatherSummary].filter(Boolean).join(' | ');
-  const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim().toUpperCase();
+  const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim();
   const calendarRowsHtml = buildCalendarRowsHtml(events);
   const notificationRowsHtml = buildNotificationRowsHtml(alerts, notesLines);
   const deviceBatteryItemsHtml = buildDeviceBatteryItemsHtml(batteryItems);
