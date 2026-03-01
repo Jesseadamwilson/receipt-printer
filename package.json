@@ -1,10 +1,6 @@
 {
   "name": "ha-receipt-printer-spike",
-<<<<<<< HEAD
   "version": "0.8.5",
-=======
-  "version": "0.8.4",
->>>>>>> 988136d858fe7ecce5e08c155cdbe11a90350098
   "private": true,
   "description": "Fresh Node receipt printer spike for Home Assistant workflows",
   "main": "src/index.js",

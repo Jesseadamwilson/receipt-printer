@@ -1,10 +1,6 @@
 {
   "name": "ha-receipt-printer-addon-app",
-<<<<<<< HEAD
   "version": "0.8.5",
-=======
-  "version": "0.8.4",
->>>>>>> 988136d858fe7ecce5e08c155cdbe11a90350098
   "private": true,
   "description": "Home Assistant add-on app for receipt printing",
   "main": "src/index.js",
