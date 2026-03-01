@@ -1,6 +1,6 @@
 {
   "name": "Receipt Printer Spike",
-  "version": "0.8.3",
+  "version": "0.8.5",
   "slug": "receipt_printer",
   "description": "Template-rendered receipt printing API over raw TCP for Home Assistant",
   "url": "https://github.com/Jesseadamwilson/receipt-printer",

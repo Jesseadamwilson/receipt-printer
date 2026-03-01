@@ -92,13 +92,24 @@ function sanitizeProfile(rawProfile, fallbackTemplate = 'daily_agenda') {
   const rawItems = Array.isArray(source.items) ? source.items : [];
   const items = rawItems.map((item) => sanitizeItem(item));
 
+  const hasGanttDayStartTime = Object.prototype.hasOwnProperty.call(source, 'ganttDayStartTime');
+  const hasGanttDayEndTime = Object.prototype.hasOwnProperty.call(source, 'ganttDayEndTime');
+  const rawGanttDayStartTime = hasGanttDayStartTime
+    ? asString(source.ganttDayStartTime, '')
+    : (template === 'daily_agenda' ? '06:00' : '');
+  const rawGanttDayEndTime = hasGanttDayEndTime
+    ? asString(source.ganttDayEndTime, '')
+    : (template === 'daily_agenda' ? '00:00' : '');
+
   return {
     id: asString(source.id, createId('profile')),
     name: asString(source.name, nameFallbackByTemplate[template]),
     template,
     enabled: asBoolean(source.enabled, true),
     items,
-    messageBody: asRawString(source.messageBody, '')
+    messageBody: asRawString(source.messageBody, ''),
+    ganttDayStartTime: rawGanttDayStartTime,
+    ganttDayEndTime: rawGanttDayEndTime
   };
 }
 
@@ -146,7 +157,9 @@ function buildDefaultProfiles(config) {
         name: 'Daily Agenda',
         template: 'daily_agenda',
         enabled: true,
-        items: buildDefaultDailyAgendaItems(config)
+        items: buildDefaultDailyAgendaItems(config),
+        ganttDayStartTime: '06:00',
+        ganttDayEndTime: '00:00'
       },
       {
         id: 'message_main',
@@ -199,6 +212,8 @@ function deriveAgendaSourceConfigFromProfile(profile, fallbackConfig) {
     agendaBatteryEntities: [],
     agendaAlertEntities: [],
     agendaNotesEntity: '',
+    agendaGanttDayStartTime: '',
+    agendaGanttDayEndTime: '',
     agendaSectionOrder: [...(fallbackConfig.agendaSectionOrder || DEFAULT_AGENDA_SECTION_ORDER)]
   };
 
@@ -243,6 +258,8 @@ function deriveAgendaSourceConfigFromProfile(profile, fallbackConfig) {
     agendaBatteryEntities: listEntities('battery'),
     agendaAlertEntities: listEntities('alert'),
     agendaNotesEntity: firstEntity('notes'),
+    agendaGanttDayStartTime: asString(profile.ganttDayStartTime, ''),
+    agendaGanttDayEndTime: asString(profile.ganttDayEndTime, ''),
     agendaSectionOrder: sectionOrder
   };
 }

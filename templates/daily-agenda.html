@@ -108,7 +108,6 @@
         color: var(--ink);
         font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
         font-size: 14px;
-        border-left: 2px solid var(--ink);
         padding-top: 1px;
       }
 
@@ -145,6 +144,7 @@
       .metric-label {
         font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
         font-size: 18px;
+        line-height: 1;
         text-transform: uppercase;
         letter-spacing: 0.8px;
         white-space: nowrap;
@@ -277,6 +277,73 @@
         text-align: right;
       }
 
+      .calendar-gantt {
+        margin-top: 10px;
+      }
+
+      .calendar-gantt-axis {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: "GothamBold", sans-serif;
+        font-size: 12px;
+        line-height: 1;
+        margin-bottom: 8px;
+      }
+
+      .calendar-gantt-rows {
+        display: grid;
+        gap: 8px;
+      }
+
+      .calendar-gantt-row {
+        display: grid;
+        gap: 4px;
+      }
+
+      .calendar-gantt-row-header {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .calendar-gantt-time {
+        flex: 0 0 auto;
+        font-family: "GothamBold", sans-serif;
+        font-size: 12px;
+        line-height: 1;
+        text-transform: uppercase;
+      }
+
+      .calendar-gantt-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-family: "GothamMedium", sans-serif;
+        font-size: 12px;
+        line-height: 1.1;
+        text-align: right;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .calendar-gantt-track {
+        position: relative;
+        height: 8px;
+        border: 1.5px solid var(--ink);
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--paper);
+      }
+
+      .calendar-gantt-bar {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: var(--ink);
+      }
+
       .notification-row .leader-left {
         letter-spacing: 1px;
       }
@@ -339,6 +406,15 @@
           <h2 class="metric-label">Calendar</h2>
         </div>
         {{{calendar_rows_html}}}
+        <section class="calendar-gantt {{calendar_gantt_hidden_class}}">
+          <div class="calendar-gantt-axis">
+            <span>{{calendar_gantt_start_label}}</span>
+            <span>{{calendar_gantt_end_label}}</span>
+          </div>
+          <div class="calendar-gantt-rows">
+            {{{calendar_gantt_rows_html}}}
+          </div>
+        </section>
       </section>
 
       <hr class="section-divider {{notifications_divider_hidden_class}}">

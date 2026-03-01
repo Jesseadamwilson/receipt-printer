@@ -72,6 +72,83 @@ function toTitleCase(value) {
   });
 }
 
+const WEATHER_SUMMARY_MAP = {
+  clear: 'Clear',
+  sunny: 'Sunny',
+  cloudy: 'Cloudy',
+  fog: 'Fog',
+  hail: 'Hail',
+  windy: 'Windy',
+  rainy: 'Rainy',
+  pouring: 'Pouring',
+  snowy: 'Snowy',
+  exceptional: 'Exceptional',
+  clearnight: 'Clear Night',
+  mostlyclear: 'Mostly Clear',
+  partlycloudy: 'Partly Cloudy',
+  mostlycloudy: 'Mostly Cloudy',
+  overcast: 'Overcast',
+  partlysunny: 'Partly Sunny',
+  mostlysunny: 'Mostly Sunny',
+  chanceflurries: 'Chance Flurries',
+  chancesleet: 'Chance Sleet',
+  chancesnow: 'Chance Snow',
+  chanceshowersandthunderstorms: 'Chance Showers And Thunderstorms',
+  chancetstms: 'Chance Thunderstorms',
+  flurries: 'Flurries',
+  freezingspray: 'Freezing Spray',
+  freezinglevel: 'Freezing Level',
+  freezinglevelsnow: 'Freezing Level Snow',
+  freezinglevelrain: 'Freezing Level Rain',
+  freezingleveldrizzle: 'Freezing Level Drizzle',
+  freezinglevelfog: 'Freezing Level Fog',
+  sleet: 'Sleet',
+  snowshowers: 'Snow Showers',
+  rainshowers: 'Rain Showers',
+  showers: 'Showers',
+  thunderstorms: 'Thunderstorms',
+  tstorms: 'Thunderstorms',
+  rainandsnow: 'Rain And Snow',
+  rainandsleet: 'Rain And Sleet',
+  snowandsleet: 'Snow And Sleet',
+  rainandsnowshowers: 'Rain And Snow Showers',
+  rainandfreezingrain: 'Rain And Freezing Rain',
+  freezinglevelrainandsnow: 'Freezing Level Rain And Snow',
+  lightningrainy: 'Lightning Rainy',
+  lightning: 'Lightning',
+  snowyrainy: 'Snowy Rainy',
+  blowingdust: 'Blowing Dust',
+  smokey: 'Smokey',
+  haze: 'Haze',
+  drizzle: 'Drizzle',
+  freezingdrizzle: 'Freezing Drizzle',
+  freezingrain: 'Freezing Rain',
+  blizzard: 'Blizzard',
+  breezy: 'Breezy',
+  tropicalstorm: 'Tropical Storm',
+  windyvariant: 'Windy Variant'
+};
+
+function normalizeWeatherSummary(value) {
+  const raw = asRawString(value, '');
+  if (!raw) {
+    return '';
+  }
+
+  const compactKey = raw.toLowerCase().replace(/[\s_-]+/g, '');
+  if (WEATHER_SUMMARY_MAP[compactKey]) {
+    return WEATHER_SUMMARY_MAP[compactKey];
+  }
+
+  const withSpaces = raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return toTitleCase(withSpaces);
+}
+
 function buildParagraphHtml(lines, lineClass = 'line') {
   const source = Array.isArray(lines) ? lines : [];
   return source
@@ -414,6 +491,277 @@ function buildCalendarRowsHtml(events) {
   }).join('\n');
 }
 
+function parseClockValueToMinutes(value) {
+  const raw = asString(value, '');
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw.toUpperCase().replace(/\s+/g, '');
+  const twelveHourMatch = normalized.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM)$/);
+  if (twelveHourMatch) {
+    let hour = Number.parseInt(twelveHourMatch[1], 10);
+    const minute = Number.parseInt(twelveHourMatch[2] || '0', 10);
+    const meridiem = twelveHourMatch[3];
+    if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) {
+      return null;
+    }
+
+    if (hour === 12) {
+      hour = 0;
+    }
+    if (meridiem === 'PM') {
+      hour += 12;
+    }
+
+    return (hour * 60) + minute;
+  }
+
+  const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
+  if (twentyFourHourMatch) {
+    const hour = Number.parseInt(twentyFourHourMatch[1], 10);
+    const minute = Number.parseInt(twentyFourHourMatch[2], 10);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) {
+      return null;
+    }
+
+    if (hour === 24 && minute === 0) {
+      return 24 * 60;
+    }
+
+    if (hour < 0 || hour > 23) {
+      return null;
+    }
+
+    return (hour * 60) + minute;
+  }
+
+  return null;
+}
+
+function parseDateTimeOrNull(value) {
+  const raw = asString(value, '');
+  if (!raw) {
+    return null;
+  }
+
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function getEventFieldString(event, fieldName) {
+  if (!event || typeof event !== 'object') {
+    return '';
+  }
+
+  const value = event[fieldName];
+  if (value && typeof value === 'object') {
+    return asString(value.dateTime || value.date, '');
+  }
+
+  return asString(value, '');
+}
+
+function buildDateFromMinutes(referenceDate, minutesValue) {
+  if (!Number.isFinite(minutesValue)) {
+    return null;
+  }
+
+  const minutes = Math.max(0, Math.min(24 * 60, Math.round(minutesValue)));
+  const base = referenceDate instanceof Date ? new Date(referenceDate) : new Date();
+  base.setHours(0, 0, 0, 0);
+  return new Date(base.getTime() + (minutes * 60 * 1000));
+}
+
+function resolveEventStartDate(event, referenceDate) {
+  const candidates = [
+    getEventFieldString(event, 'start_iso'),
+    getEventFieldString(event, 'startIso'),
+    getEventFieldString(event, 'start'),
+    getEventFieldString(event, '_sortTime')
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = parseDateTimeOrNull(candidate);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  const fallbackMinutes = parseClockValueToMinutes(getEventFieldString(event, 'time'));
+  if (fallbackMinutes === null) {
+    return null;
+  }
+
+  return buildDateFromMinutes(referenceDate, fallbackMinutes);
+}
+
+function resolveEventEndDate(event, referenceDate, startDate) {
+  const candidates = [
+    getEventFieldString(event, 'end_iso'),
+    getEventFieldString(event, 'endIso'),
+    getEventFieldString(event, 'end')
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = parseDateTimeOrNull(candidate);
+    if (parsed) {
+      return parsed;
+    }
+  }
+
+  const endMinutes = parseClockValueToMinutes(getEventFieldString(event, 'end_time'));
+  if (endMinutes !== null) {
+    const endDate = buildDateFromMinutes(referenceDate, endMinutes);
+    if (endDate) {
+      if (startDate && endDate.getTime() <= startDate.getTime()) {
+        return new Date(endDate.getTime() + (24 * 60 * 60 * 1000));
+      }
+      return endDate;
+    }
+  }
+
+  if (startDate) {
+    return new Date(startDate.getTime() + (60 * 60 * 1000));
+  }
+
+  return null;
+}
+
+function buildCalendarGantt(events, options = {}) {
+  const source = Array.isArray(events) ? events : [];
+  if (source.length === 0) {
+    return {
+      rowsHtml: '',
+      startLabel: '',
+      endLabel: '',
+      hiddenClass: 'is-hidden'
+    };
+  }
+
+  const referenceDate = options.referenceDate instanceof Date ? options.referenceDate : new Date();
+  const rows = [];
+  let earliestStartMs = null;
+  let latestEndMs = null;
+
+  for (const event of source) {
+    const startDate = resolveEventStartDate(event, referenceDate);
+    if (!startDate) {
+      continue;
+    }
+
+    let endDate = resolveEventEndDate(event, referenceDate, startDate);
+    if (!endDate || endDate.getTime() <= startDate.getTime()) {
+      endDate = new Date(startDate.getTime() + (60 * 60 * 1000));
+    }
+
+    const title = toTitleCase(asString(event && event.title, 'Event')) || 'Event';
+    const startMs = startDate.getTime();
+    const endMs = endDate.getTime();
+
+    earliestStartMs = earliestStartMs === null ? startMs : Math.min(earliestStartMs, startMs);
+    latestEndMs = latestEndMs === null ? endMs : Math.max(latestEndMs, endMs);
+
+    rows.push({
+      title,
+      startDate,
+      endDate,
+      startMs,
+      endMs
+    });
+  }
+
+  if (rows.length === 0 || earliestStartMs === null || latestEndMs === null) {
+    return {
+      rowsHtml: '',
+      startLabel: '',
+      endLabel: '',
+      hiddenClass: 'is-hidden'
+    };
+  }
+
+  const configuredStartMinutes = parseClockValueToMinutes(options.dayStartTime);
+  const configuredEndMinutes = parseClockValueToMinutes(options.dayEndTime);
+
+  let chartStartMs = configuredStartMinutes !== null
+    ? buildDateFromMinutes(referenceDate, configuredStartMinutes).getTime()
+    : earliestStartMs;
+
+  let chartEndMs = configuredEndMinutes !== null
+    ? buildDateFromMinutes(referenceDate, configuredEndMinutes).getTime()
+    : latestEndMs;
+
+  if (configuredEndMinutes !== null && chartEndMs <= chartStartMs) {
+    chartEndMs += 24 * 60 * 60 * 1000;
+  }
+
+  if (configuredEndMinutes === null) {
+    chartEndMs = latestEndMs;
+  }
+  if (configuredStartMinutes === null) {
+    chartStartMs = earliestStartMs;
+  }
+
+  if (chartEndMs <= chartStartMs) {
+    chartEndMs = chartStartMs + (60 * 60 * 1000);
+  }
+
+  const totalMs = chartEndMs - chartStartMs;
+  const visibleRows = rows.filter((row) => row.endMs > chartStartMs && row.startMs < chartEndMs);
+  if (visibleRows.length === 0) {
+    return {
+      rowsHtml: '',
+      startLabel: compactMeridiem(
+        new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(chartStartMs))
+      ),
+      endLabel: compactMeridiem(
+        new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(chartEndMs))
+      ),
+      hiddenClass: 'is-hidden'
+    };
+  }
+
+  const rowsHtml = visibleRows.map((row) => {
+    const clampedStart = Math.max(row.startMs, chartStartMs);
+    const clampedEnd = Math.min(row.endMs, chartEndMs);
+    const leftPct = ((clampedStart - chartStartMs) / totalMs) * 100;
+    const widthPct = Math.max(1, ((clampedEnd - clampedStart) / totalMs) * 100);
+    const startLabel = compactMeridiem(
+      new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(row.startDate)
+    );
+
+    return [
+      '<div class="calendar-gantt-row">',
+      '<div class="calendar-gantt-row-header">',
+      `<span class="calendar-gantt-time">${escapeHtml(startLabel)}</span>`,
+      `<span class="calendar-gantt-title">${escapeHtml(row.title)}</span>`,
+      '</div>',
+      '<div class="calendar-gantt-track">',
+      `<span class="calendar-gantt-bar" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;"></span>`,
+      '</div>',
+      '</div>'
+    ].join('');
+  }).join('\n');
+
+  const startClock = compactMeridiem(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(chartStartMs))
+  );
+  const endClock = compactMeridiem(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(chartEndMs))
+  );
+
+  return {
+    rowsHtml,
+    startLabel: startClock,
+    endLabel: endClock,
+    hiddenClass: ''
+  };
+}
+
 function splitAlertLine(value) {
   const text = toTitleCase(value);
   if (!text) {
@@ -598,9 +946,10 @@ function summarizeAgendaInput(input) {
   };
 }
 
-function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
+function buildDailyAgendaTemplateContext(hydratedInput, templateData, renderOptions = {}) {
   const source = hydratedInput && typeof hydratedInput === 'object' ? hydratedInput : {};
   const template = templateData && typeof templateData === 'object' ? templateData : {};
+  const options = renderOptions && typeof renderOptions === 'object' ? renderOptions : {};
   const generatedAt = new Date();
   const dateTokens = buildDateTokens(generatedAt);
 
@@ -621,7 +970,7 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
   const contentLines = Array.isArray(template.lines) ? template.lines : [];
 
   const currentTemp = asString(weather.temp, '');
-  const weatherSummary = toTitleCase(weather.summary);
+  const weatherSummary = normalizeWeatherSummary(weather.summary);
   const weatherHigh = asString(weather.high, '');
   const weatherLow = asString(weather.low, '');
   const hoursOfSleep = asString(sleep.hours, '');
@@ -632,6 +981,13 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
   const weatherLine = [currentTemp, weatherSummary].filter(Boolean).join(' | ');
   const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim().toUpperCase();
   const calendarRowsHtml = buildCalendarRowsHtml(events);
+  const ganttDayStartTime = asString(source.ganttDayStartTime || options.ganttDayStartTime, '');
+  const ganttDayEndTime = asString(source.ganttDayEndTime || options.ganttDayEndTime, '');
+  const calendarGantt = buildCalendarGantt(events, {
+    referenceDate: generatedAt,
+    dayStartTime: ganttDayStartTime,
+    dayEndTime: ganttDayEndTime
+  });
   const notificationRowsHtml = buildNotificationRowsHtml(alerts, notesLines);
   const hasNotifications = Boolean(notificationRowsHtml && notificationRowsHtml.trim());
   const deviceBatteryItemsHtml = buildDeviceBatteryItemsHtml(batteryItems);
@@ -662,6 +1018,12 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
     todays_calendar_events_html: buildListHtml(eventLines, 'events-list', 'event-item'),
     calendar_rows_html: calendarRowsHtml,
     calendar_count: String(eventLines.length),
+    calendar_gantt_rows_html: calendarGantt.rowsHtml,
+    calendar_gantt_start_label: calendarGantt.startLabel,
+    calendar_gantt_end_label: calendarGantt.endLabel,
+    calendar_gantt_hidden_class: calendarGantt.hiddenClass,
+    calendar_gantt_start_time: ganttDayStartTime,
+    calendar_gantt_end_time: ganttDayEndTime,
     battery_levels: batteryLines.join('\n'),
     battery_levels_count: String(batteryLines.length),
     battery_levels_html: buildListHtml(batteryLines, 'battery-list', 'battery-item'),
@@ -825,7 +1187,10 @@ async function runDailyAgendaJob(config, deps, payload) {
     includeDefaults: config.agendaIncludeDefaults,
     sectionOrder: effectiveConfig.agendaSectionOrder
   });
-  const templateContext = buildDailyAgendaTemplateContext(hydratedInput, templateData);
+  const templateContext = buildDailyAgendaTemplateContext(hydratedInput, templateData, {
+    ganttDayStartTime: asString(effectiveConfig.agendaGanttDayStartTime, ''),
+    ganttDayEndTime: asString(effectiveConfig.agendaGanttDayEndTime, '')
+  });
 
   const result = await runRenderJob(effectiveConfig, {
     templateType: 'daily_agenda',
@@ -918,7 +1283,10 @@ async function previewDailyAgenda(config, deps, payload) {
     includeDefaults: config.agendaIncludeDefaults,
     sectionOrder: effectiveConfig.agendaSectionOrder
   });
-  const templateContext = buildDailyAgendaTemplateContext(hydratedInput, templateData);
+  const templateContext = buildDailyAgendaTemplateContext(hydratedInput, templateData, {
+    ganttDayStartTime: asString(effectiveConfig.agendaGanttDayStartTime, ''),
+    ganttDayEndTime: asString(effectiveConfig.agendaGanttDayEndTime, '')
+  });
 
   const imagePath = await renderTemplateToPng(effectiveConfig, {
     ...templateData,

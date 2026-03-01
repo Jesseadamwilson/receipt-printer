@@ -341,7 +341,9 @@
       name: 'Daily Agenda',
       template: 'daily_agenda',
       enabled: true,
-      items: []
+      items: [],
+      ganttDayStartTime: '06:00',
+      ganttDayEndTime: '00:00'
     };
   }
 
@@ -382,6 +384,13 @@
     if (!dailyProfile) {
       dailyProfile = createDailyProfile();
       state.store.profiles.push(dailyProfile);
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(dailyProfile, 'ganttDayStartTime')) {
+      dailyProfile.ganttDayStartTime = '06:00';
+    }
+    if (!Object.prototype.hasOwnProperty.call(dailyProfile, 'ganttDayEndTime')) {
+      dailyProfile.ganttDayEndTime = '00:00';
     }
 
     state.store.defaultDailyAgendaProfileId = dailyProfile.id;
@@ -463,9 +472,22 @@
     ui.messageBody.value = asRawString(messageProfile.messageBody, '');
   }
 
+  function renderDailySettings() {
+    const dailyProfile = getDailyProfile();
+    if (!dailyProfile) {
+      ui.ganttDayStartTime.value = '';
+      ui.ganttDayEndTime.value = '';
+      return;
+    }
+
+    ui.ganttDayStartTime.value = asString(dailyProfile.ganttDayStartTime, '');
+    ui.ganttDayEndTime.value = asString(dailyProfile.ganttDayEndTime, '');
+  }
+
   function renderAll() {
     ensureSimpleProfiles();
     renderDailyRows();
+    renderDailySettings();
     renderMessageSection();
     ui.customCss.value = asRawString(state.customCss, '');
     ui.saveBtn.disabled = !state.dirty;
@@ -511,7 +533,11 @@
       profileId: dailyProfile.id,
       title: 'Daily Agenda Preview',
       subtitle: 'Today',
-      source: 'auto'
+      source: 'auto',
+      agendaInput: {
+        ganttDayStartTime: asString(dailyProfile.ganttDayStartTime, ''),
+        ganttDayEndTime: asString(dailyProfile.ganttDayEndTime, '')
+      }
     });
     showPreview(blob);
   }
@@ -553,6 +579,10 @@
         title: 'Daily Agenda',
         subtitle: 'Today',
         source: 'auto',
+        agendaInput: {
+          ganttDayStartTime: asString(dailyProfile.ganttDayStartTime, ''),
+          ganttDayEndTime: asString(dailyProfile.ganttDayEndTime, '')
+        },
         print: {
           feedLines: 3,
           cut: true
@@ -747,11 +777,24 @@
     setDirty(true);
   }
 
+  function onDailySettingsInput() {
+    const dailyProfile = getDailyProfile();
+    if (!dailyProfile) {
+      return;
+    }
+
+    dailyProfile.ganttDayStartTime = asString(ui.ganttDayStartTime.value, '');
+    dailyProfile.ganttDayEndTime = asString(ui.ganttDayEndTime.value, '');
+    setDirty(true);
+  }
+
   function cacheDom() {
     ui.reloadBtn = document.getElementById('reload-btn');
     ui.saveBtn = document.getElementById('save-btn');
     ui.addItemBtn = document.getElementById('add-item-btn');
     ui.itemList = document.getElementById('item-list');
+    ui.ganttDayStartTime = document.getElementById('gantt-day-start-time');
+    ui.ganttDayEndTime = document.getElementById('gantt-day-end-time');
     ui.messageHeadline = document.getElementById('message-headline');
     ui.messageBody = document.getElementById('message-body');
     ui.customCss = document.getElementById('custom-css');
@@ -789,6 +832,8 @@
     ui.messageHeadline.addEventListener('input', onMessageInput);
     ui.messageBody.addEventListener('input', onMessageInput);
     ui.customCss.addEventListener('input', onCustomCssInput);
+    ui.ganttDayStartTime.addEventListener('input', onDailySettingsInput);
+    ui.ganttDayEndTime.addEventListener('input', onDailySettingsInput);
 
     ui.previewDailyBtn.addEventListener('click', async () => {
       try {
