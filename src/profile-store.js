@@ -92,6 +92,7 @@ function sanitizeProfile(rawProfile, fallbackTemplate = 'daily_agenda') {
   const rawItems = Array.isArray(source.items) ? source.items : [];
   const items = rawItems.map((item) => sanitizeItem(item));
 
+<<<<<<< HEAD
   const hasGanttDayStartTime = Object.prototype.hasOwnProperty.call(source, 'ganttDayStartTime');
   const hasGanttDayEndTime = Object.prototype.hasOwnProperty.call(source, 'ganttDayEndTime');
   const rawGanttDayStartTime = hasGanttDayStartTime
@@ -100,6 +101,10 @@ function sanitizeProfile(rawProfile, fallbackTemplate = 'daily_agenda') {
   const rawGanttDayEndTime = hasGanttDayEndTime
     ? asString(source.ganttDayEndTime, '')
     : (template === 'daily_agenda' ? '00:00' : '');
+=======
+  const rawGanttDayStartTime = asString(source.ganttDayStartTime, '');
+  const rawGanttDayEndTime = asString(source.ganttDayEndTime, '');
+>>>>>>> 988136d858fe7ecce5e08c155cdbe11a90350098
 
   return {
     id: asString(source.id, createId('profile')),
