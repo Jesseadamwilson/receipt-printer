@@ -36,10 +36,11 @@
         background: var(--paper);
         color: var(--ink);
         font-family: "GothamMedium", ui-sans-serif, system-ui, -apple-system, sans-serif;
+        font-size: 20px;
       }
 
       .ticket {
-        padding: 28px 30px 30px;
+        padding: 10px;
       }
 
       .brand-row {
@@ -58,57 +59,27 @@
         height: auto;
       }
 
-      .summary-chip {
-        margin-top: 18px;
+      .summary-date {
+        margin-top: 25px;
         border: 2px solid var(--ink);
         border-radius: 999px;
         overflow: hidden;
-        display: grid;
-        grid-template-columns: 1.95fr 1fr;
-        min-height: 48px;
-        background: var(--paper);
-      }
-
-      .summary-chip-left-shell {
-        padding: 2px 0 2px 2px;
-      }
-
-      .summary-chip-left {
-        height: 100%;
         display: flex;
-        align-items: center;
         justify-content: center;
+        align-items: center;
+        min-height: 48px;
+        background: var(--ink);
+      }
+      .summary-date-label {
         text-transform: uppercase;
         letter-spacing: 0.5px;
         line-height: 1;
+        transform: translateY(11%);
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        padding: 0 12px;
-        background: var(--ink);
         color: var(--paper);
         font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
-        font-size: 14px;
+        font-size: 22px;
         border-radius: 999px;
-        padding-top: 2px;
-      }
-
-      .summary-chip-right {
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        line-height: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        padding: 0 12px;
-        color: var(--ink);
-        font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
-        font-size: 14px;
-        padding-top: 1px;
       }
 
       .section--sleep {
@@ -143,7 +114,8 @@
 
       .metric-label {
         font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
-        font-size: 18px;
+        font-size: 22px;
+        transform: translateY(25%);
         line-height: 1;
         text-transform: uppercase;
         letter-spacing: 0.8px;
@@ -152,7 +124,6 @@
 
       .metric-value {
         font-family: "GothamMedium", sans-serif;
-        font-size: 19px;
         text-align: right;
       }
 
@@ -360,7 +331,6 @@
         display: none !important;
       }
     </style>
-    {{custom_css_block}}
   </head>
   <body>
     <section class="ticket ticket--daily-agenda">
@@ -369,11 +339,8 @@
         <img class="brand-ornament" src="assets/ornament.svg" alt="">
       </header>
 
-      <section class="summary-chip">
-        <div class="summary-chip-left-shell">
-          <div class="summary-chip-left">{{date_chip}}</div>
-        </div>
-        <div class="summary-chip-right">{{summary_label}}</div>
+      <section class="summary-date">
+          <div class="summary-date-label">{{date_chip}}</div>
       </section>
 
       <section class="metric-row section--sleep">

@@ -672,10 +672,14 @@ function formatClockMarkerParts(value) {
   };
 }
 
-function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs) {
+function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs, options = {}) {
   if (!Number.isFinite(chartStartMs) || !Number.isFinite(chartEndMs) || chartEndMs <= chartStartMs) {
     return '';
   }
+
+  const mapPercentage = typeof options.mapPercentage === 'function'
+    ? options.mapPercentage
+    : (value) => value;
 
   const hourMs = 60 * 60 * 1000;
   const totalMs = chartEndMs - chartStartMs;
@@ -700,7 +704,7 @@ function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs) {
 
   return uniquePoints.map((point, index) => {
     const leftPct = ((point - chartStartMs) / totalMs) * 100;
-    const clampedLeftPct = Math.max(0, Math.min(100, leftPct));
+    const clampedLeftPct = Math.max(0, Math.min(100, mapPercentage(leftPct)));
     const isStart = index === 0;
     const isEnd = index === uniquePoints.length - 1;
     const markerClass = `calendar-gantt-hour-marker${isStart ? ' is-start' : ''}${isEnd ? ' is-end' : ''}`;
@@ -798,6 +802,12 @@ function buildCalendarGantt(events, options = {}) {
     chartEndMs = chartStartMs + (60 * 60 * 1000);
   }
 
+  const axisInsetPct = Math.max(0, Math.min(12, Number(options.axisInsetPct) || 2.8));
+  const mapToInsetPct = (rawPct) => {
+    const clampedRaw = Math.max(0, Math.min(100, rawPct));
+    return axisInsetPct + ((clampedRaw / 100) * (100 - (axisInsetPct * 2)));
+  };
+
   const totalMs = chartEndMs - chartStartMs;
   const visibleRows = rows.filter((row) => row.endMs > chartStartMs && row.startMs < chartEndMs);
   if (visibleRows.length === 0) {
@@ -813,8 +823,11 @@ function buildCalendarGantt(events, options = {}) {
   const rowsHtml = visibleRows.map((row) => {
     const clampedStart = Math.max(row.startMs, chartStartMs);
     const clampedEnd = Math.min(row.endMs, chartEndMs);
-    const leftPct = ((clampedStart - chartStartMs) / totalMs) * 100;
-    const widthPct = Math.max(1, ((clampedEnd - clampedStart) / totalMs) * 100);
+    const rawLeftPct = ((clampedStart - chartStartMs) / totalMs) * 100;
+    const rawRightPct = ((clampedEnd - chartStartMs) / totalMs) * 100;
+    const leftPct = mapToInsetPct(rawLeftPct);
+    const rightPct = mapToInsetPct(rawRightPct);
+    const widthPct = Math.max(1, rightPct - leftPct);
 
     return [
       '<div class="calendar-gantt-row">',
@@ -827,7 +840,9 @@ function buildCalendarGantt(events, options = {}) {
 
   const startClock = formatClockLabel(chartStartMs);
   const endClock = formatClockLabel(chartEndMs);
-  const hourMarkersHtml = buildCalendarGanttHourMarkers(chartStartMs, chartEndMs);
+  const hourMarkersHtml = buildCalendarGanttHourMarkers(chartStartMs, chartEndMs, {
+    mapPercentage: mapToInsetPct
+  });
 
   return {
     rowsHtml,
