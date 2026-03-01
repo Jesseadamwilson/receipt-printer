@@ -643,6 +643,35 @@ function formatClockLabel(value) {
   );
 }
 
+function formatClockMarkerParts(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return { major: '', meridiem: '' };
+  }
+
+  const formatted = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }).format(date).toUpperCase().replace(/\s+/g, '');
+
+  const match = formatted.match(/^(\d{1,2})(?::(\d{2}))?(AM|PM)$/);
+  if (!match) {
+    return {
+      major: compactMeridiem(formatted),
+      meridiem: ''
+    };
+  }
+
+  const hour = match[1];
+  const minute = match[2] || '00';
+  const meridiem = match[3];
+  return {
+    major: minute === '00' ? hour : `${hour}:${minute}`,
+    meridiem
+  };
+}
+
 function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs) {
   if (!Number.isFinite(chartStartMs) || !Number.isFinite(chartEndMs) || chartEndMs <= chartStartMs) {
     return '';
@@ -675,12 +704,15 @@ function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs) {
     const isStart = index === 0;
     const isEnd = index === uniquePoints.length - 1;
     const markerClass = `calendar-gantt-hour-marker${isStart ? ' is-start' : ''}${isEnd ? ' is-end' : ''}`;
-    const label = formatClockLabel(point);
+    const markerLabel = formatClockMarkerParts(point);
 
     return [
       `<span class="${markerClass}" style="left:${clampedLeftPct.toFixed(2)}%;">`,
       '<span class="calendar-gantt-hour-tick"></span>',
-      `<span class="calendar-gantt-hour-label">${escapeHtml(label)}</span>`,
+      '<span class="calendar-gantt-hour-label">',
+      `<span class="calendar-gantt-hour-major">${escapeHtml(markerLabel.major)}</span>`,
+      `<span class="calendar-gantt-hour-meridiem">${escapeHtml(markerLabel.meridiem)}</span>`,
+      '</span>',
       '</span>'
     ].join('');
   }).join('\n');
@@ -783,17 +815,11 @@ function buildCalendarGantt(events, options = {}) {
     const clampedEnd = Math.min(row.endMs, chartEndMs);
     const leftPct = ((clampedStart - chartStartMs) / totalMs) * 100;
     const widthPct = Math.max(1, ((clampedEnd - clampedStart) / totalMs) * 100);
-    const startLabel = formatClockLabel(row.startDate);
-    const endLabel = formatClockLabel(row.endDate);
-    const rangeLabel = [startLabel, endLabel].filter(Boolean).join('-');
 
     return [
       '<div class="calendar-gantt-row">',
       '<div class="calendar-gantt-track">',
-      `<span class="calendar-gantt-bar" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;">`,
-      `<span class="calendar-gantt-bar-range">${escapeHtml(rangeLabel)}</span>`,
-      `<span class="calendar-gantt-bar-title">${escapeHtml(row.title)}</span>`,
-      '</span>',
+      `<span class="calendar-gantt-bar" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;"></span>`,
       '</div>',
       '</div>'
     ].join('');
