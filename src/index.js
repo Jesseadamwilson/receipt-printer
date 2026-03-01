@@ -632,11 +632,66 @@ function resolveEventEndDate(event, referenceDate, startDate) {
   return null;
 }
 
+function formatClockLabel(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return compactMeridiem(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date)
+  );
+}
+
+function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs) {
+  if (!Number.isFinite(chartStartMs) || !Number.isFinite(chartEndMs) || chartEndMs <= chartStartMs) {
+    return '';
+  }
+
+  const hourMs = 60 * 60 * 1000;
+  const totalMs = chartEndMs - chartStartMs;
+  const markerPoints = [chartStartMs];
+
+  let cursorMs = Math.ceil(chartStartMs / hourMs) * hourMs;
+  while (cursorMs < chartEndMs) {
+    markerPoints.push(cursorMs);
+    cursorMs += hourMs;
+  }
+  markerPoints.push(chartEndMs);
+
+  const seen = new Set();
+  const uniquePoints = markerPoints.filter((point) => {
+    const key = Math.round(point / (60 * 1000));
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+
+  return uniquePoints.map((point, index) => {
+    const leftPct = ((point - chartStartMs) / totalMs) * 100;
+    const clampedLeftPct = Math.max(0, Math.min(100, leftPct));
+    const isStart = index === 0;
+    const isEnd = index === uniquePoints.length - 1;
+    const markerClass = `calendar-gantt-hour-marker${isStart ? ' is-start' : ''}${isEnd ? ' is-end' : ''}`;
+    const label = formatClockLabel(point);
+
+    return [
+      `<span class="${markerClass}" style="left:${clampedLeftPct.toFixed(2)}%;">`,
+      '<span class="calendar-gantt-hour-tick"></span>',
+      `<span class="calendar-gantt-hour-label">${escapeHtml(label)}</span>`,
+      '</span>'
+    ].join('');
+  }).join('\n');
+}
+
 function buildCalendarGantt(events, options = {}) {
   const source = Array.isArray(events) ? events : [];
   if (source.length === 0) {
     return {
       rowsHtml: '',
+      hourMarkersHtml: '',
       startLabel: '',
       endLabel: '',
       hiddenClass: 'is-hidden'
@@ -678,6 +733,7 @@ function buildCalendarGantt(events, options = {}) {
   if (rows.length === 0 || earliestStartMs === null || latestEndMs === null) {
     return {
       rowsHtml: '',
+      hourMarkersHtml: '',
       startLabel: '',
       endLabel: '',
       hiddenClass: 'is-hidden'
@@ -715,12 +771,9 @@ function buildCalendarGantt(events, options = {}) {
   if (visibleRows.length === 0) {
     return {
       rowsHtml: '',
-      startLabel: compactMeridiem(
-        new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(chartStartMs))
-      ),
-      endLabel: compactMeridiem(
-        new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(chartEndMs))
-      ),
+      hourMarkersHtml: '',
+      startLabel: formatClockLabel(chartStartMs),
+      endLabel: formatClockLabel(chartEndMs),
       hiddenClass: 'is-hidden'
     };
   }
@@ -730,32 +783,29 @@ function buildCalendarGantt(events, options = {}) {
     const clampedEnd = Math.min(row.endMs, chartEndMs);
     const leftPct = ((clampedStart - chartStartMs) / totalMs) * 100;
     const widthPct = Math.max(1, ((clampedEnd - clampedStart) / totalMs) * 100);
-    const startLabel = compactMeridiem(
-      new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(row.startDate)
-    );
+    const startLabel = formatClockLabel(row.startDate);
+    const endLabel = formatClockLabel(row.endDate);
+    const rangeLabel = [startLabel, endLabel].filter(Boolean).join('-');
 
     return [
       '<div class="calendar-gantt-row">',
-      '<div class="calendar-gantt-row-header">',
-      `<span class="calendar-gantt-time">${escapeHtml(startLabel)}</span>`,
-      `<span class="calendar-gantt-title">${escapeHtml(row.title)}</span>`,
-      '</div>',
       '<div class="calendar-gantt-track">',
-      `<span class="calendar-gantt-bar" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;"></span>`,
+      `<span class="calendar-gantt-bar" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;">`,
+      `<span class="calendar-gantt-bar-range">${escapeHtml(rangeLabel)}</span>`,
+      `<span class="calendar-gantt-bar-title">${escapeHtml(row.title)}</span>`,
+      '</span>',
       '</div>',
       '</div>'
     ].join('');
   }).join('\n');
 
-  const startClock = compactMeridiem(
-    new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(chartStartMs))
-  );
-  const endClock = compactMeridiem(
-    new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(chartEndMs))
-  );
+  const startClock = formatClockLabel(chartStartMs);
+  const endClock = formatClockLabel(chartEndMs);
+  const hourMarkersHtml = buildCalendarGanttHourMarkers(chartStartMs, chartEndMs);
 
   return {
     rowsHtml,
+    hourMarkersHtml,
     startLabel: startClock,
     endLabel: endClock,
     hiddenClass: ''
@@ -1019,6 +1069,7 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData, renderOpti
     calendar_rows_html: calendarRowsHtml,
     calendar_count: String(eventLines.length),
     calendar_gantt_rows_html: calendarGantt.rowsHtml,
+    calendar_gantt_hour_markers_html: calendarGantt.hourMarkersHtml,
     calendar_gantt_start_label: calendarGantt.startLabel,
     calendar_gantt_end_label: calendarGantt.endLabel,
     calendar_gantt_hidden_class: calendarGantt.hiddenClass,

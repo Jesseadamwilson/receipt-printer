@@ -281,58 +281,21 @@
         margin-top: 10px;
       }
 
-      .calendar-gantt-axis {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-family: "GothamBold", sans-serif;
-        font-size: 12px;
-        line-height: 1;
-        margin-bottom: 8px;
-      }
-
       .calendar-gantt-rows {
-        display: grid;
-        gap: 8px;
+        display: block;
+        border: 1.5px solid var(--ink);
+        border-bottom: 0;
       }
 
       .calendar-gantt-row {
-        display: grid;
-        gap: 4px;
-      }
-
-      .calendar-gantt-row-header {
-        display: flex;
-        align-items: baseline;
-        gap: 8px;
-        min-width: 0;
-      }
-
-      .calendar-gantt-time {
-        flex: 0 0 auto;
-        font-family: "GothamBold", sans-serif;
-        font-size: 12px;
-        line-height: 1;
-        text-transform: uppercase;
-      }
-
-      .calendar-gantt-title {
-        flex: 1 1 auto;
-        min-width: 0;
-        font-family: "GothamMedium", sans-serif;
-        font-size: 12px;
-        line-height: 1.1;
-        text-align: right;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        margin: 0;
+        padding: 0;
+        border-bottom: 1.5px solid var(--ink);
       }
 
       .calendar-gantt-track {
         position: relative;
-        height: 8px;
-        border: 1.5px solid var(--ink);
-        border-radius: 999px;
+        height: 24px;
         overflow: hidden;
         background: var(--paper);
       }
@@ -342,6 +305,79 @@
         top: 0;
         bottom: 0;
         background: var(--ink);
+        color: var(--paper);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 6px;
+        min-width: 2px;
+        overflow: hidden;
+      }
+
+      .calendar-gantt-bar-range {
+        flex: 0 0 auto;
+        font-family: "GothamBold", sans-serif;
+        font-size: 10px;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .calendar-gantt-bar-title {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-family: "GothamMedium", sans-serif;
+        font-size: 10px;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .calendar-gantt-hours {
+        position: relative;
+        height: 22px;
+        margin-top: 6px;
+        border-top: 1.5px solid var(--ink);
+      }
+
+      .calendar-gantt-hour-marker {
+        position: absolute;
+        top: 0;
+        transform: translateX(-50%);
+        width: 0;
+      }
+
+      .calendar-gantt-hour-tick {
+        display: block;
+        width: 1.5px;
+        height: 6px;
+        background: var(--ink);
+      }
+
+      .calendar-gantt-hour-label {
+        display: block;
+        margin-top: 2px;
+        transform: translateX(-50%);
+        font-family: "GothamBold", sans-serif;
+        font-size: 8px;
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .calendar-gantt-hour-marker.is-start {
+        transform: none;
+      }
+
+      .calendar-gantt-hour-marker.is-start .calendar-gantt-hour-label {
+        transform: none;
+      }
+
+      .calendar-gantt-hour-marker.is-end {
+        transform: translateX(-100%);
+      }
+
+      .calendar-gantt-hour-marker.is-end .calendar-gantt-hour-label {
+        transform: translateX(-100%);
       }
 
       .notification-row .leader-left {
@@ -407,12 +443,11 @@
         </div>
         {{{calendar_rows_html}}}
         <section class="calendar-gantt {{calendar_gantt_hidden_class}}">
-          <div class="calendar-gantt-axis">
-            <span>{{calendar_gantt_start_label}}</span>
-            <span>{{calendar_gantt_end_label}}</span>
-          </div>
           <div class="calendar-gantt-rows">
             {{{calendar_gantt_rows_html}}}
+          </div>
+          <div class="calendar-gantt-hours">
+            {{{calendar_gantt_hour_markers_html}}}
           </div>
         </section>
       </section>
