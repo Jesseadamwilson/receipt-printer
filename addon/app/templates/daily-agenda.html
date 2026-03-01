@@ -65,11 +65,16 @@
         overflow: hidden;
         display: grid;
         grid-template-columns: 1.95fr 1fr;
+        min-height: 48px;
+        background: var(--paper);
       }
 
-      .summary-chip-left,
-      .summary-chip-right {
-        height: 46px;
+      .summary-chip-left-shell {
+        padding: 2px 0 2px 2px;
+      }
+
+      .summary-chip-left {
+        height: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -80,20 +85,30 @@
         overflow: hidden;
         text-overflow: ellipsis;
         padding: 0 12px;
-      }
-
-      .summary-chip-left {
         background: var(--ink);
         color: var(--paper);
         font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
-        font-size: 13px;
+        font-size: 14px;
+        border-radius: 999px;
         padding-top: 2px;
       }
 
       .summary-chip-right {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 12px;
         color: var(--ink);
         font-family: "HelveticaNeueHeadline", "GothamBold", sans-serif;
-        font-size: 13px;
+        font-size: 14px;
+        border-left: 2px solid var(--ink);
         padding-top: 1px;
       }
 
@@ -238,7 +253,7 @@
 
       .calendar-entry {
         display: grid;
-        grid-template-columns: max-content 1fr minmax(0, 58%);
+        grid-template-columns: max-content 1fr max-content;
         align-items: start;
         column-gap: 8px;
         row-gap: 2px;
@@ -249,12 +264,17 @@
         margin-top: 14px;
       }
 
-      .calendar-entry-more {
-        text-align: right;
+      .calendar-entry .leader-right {
+        max-width: 360px;
       }
 
-      .calendar-entry-pad {
-        display: block;
+      .calendar-entry .leader-right-first {
+        white-space: nowrap;
+      }
+
+      .calendar-entry-more {
+        grid-column: 3;
+        text-align: right;
       }
 
       .notification-row .leader-left {
@@ -275,7 +295,9 @@
       </header>
 
       <section class="summary-chip">
-        <div class="summary-chip-left">{{date_chip}}</div>
+        <div class="summary-chip-left-shell">
+          <div class="summary-chip-left">{{date_chip}}</div>
+        </div>
         <div class="summary-chip-right">{{summary_label}}</div>
       </section>
 

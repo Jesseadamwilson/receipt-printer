@@ -400,11 +400,7 @@ function buildCalendarRowsHtml(events) {
     const continuationLines = lines.slice(1);
 
     const continuationHtml = continuationLines.map((line) => {
-      return [
-        '<span class="calendar-entry-pad calendar-entry-pad-left" aria-hidden="true"></span>',
-        '<span class="calendar-entry-pad calendar-entry-pad-dots" aria-hidden="true"></span>',
-        `<span class="leader-right calendar-entry-more">${escapeHtml(line)}</span>`
-      ].join('');
+      return `<span class="leader-right calendar-entry-more">${escapeHtml(line)}</span>`;
     }).join('');
 
     return [
