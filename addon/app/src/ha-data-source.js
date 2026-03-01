@@ -188,6 +188,18 @@ function getEventStartRaw(event) {
   return asString(event.start, '');
 }
 
+function getEventEndRaw(event) {
+  if (!event || typeof event !== 'object') {
+    return '';
+  }
+
+  if (event.end && typeof event.end === 'object') {
+    return asString(event.end.dateTime || event.end.date, '');
+  }
+
+  return asString(event.end, '');
+}
+
 function mapCalendarEvent(event) {
   const title = asString(
     event && (event.summary || event.title || event.message),
@@ -195,6 +207,7 @@ function mapCalendarEvent(event) {
   );
   const location = asString(event && event.location, '');
   const startRaw = getEventStartRaw(event);
+  const endRaw = getEventEndRaw(event);
   const time = formatEventTime(startRaw);
 
   if (!title && !time && !location) {
@@ -205,6 +218,8 @@ function mapCalendarEvent(event) {
     time,
     title: title || 'Calendar Event',
     location,
+    start_iso: startRaw || '',
+    end_iso: endRaw || '',
     _sortTime: startRaw || ''
   };
 }
@@ -232,7 +247,9 @@ function removeSortMetadata(events) {
   return events.map((event) => ({
     time: event.time,
     title: event.title,
-    location: event.location
+    location: event.location,
+    start_iso: event.start_iso || '',
+    end_iso: event.end_iso || ''
   }));
 }
 
