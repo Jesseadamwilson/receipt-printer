@@ -19,6 +19,9 @@ export CUSTOM_CSS_PATH="$(bashio::config 'custom_css_path')"
 export PROFILE_STORE_PATH="$(bashio::config 'profile_store_path')"
 export HA_API_BASE_URL="$(bashio::config 'ha_api_base_url')"
 export HA_API_TOKEN="$(bashio::config 'ha_api_token')"
+export AGENDA_PRE_REFRESH_ENABLED="$(bashio::config 'agenda_pre_refresh_enabled')"
+export AGENDA_PRE_REFRESH_SERVICES="$(bashio::config 'agenda_pre_refresh_services')"
+export AGENDA_PRE_REFRESH_DELAY_MS="$(bashio::config 'agenda_pre_refresh_delay_ms')"
 
 if command -v chromium-browser >/dev/null 2>&1; then
   export CHROMIUM_PATH="$(command -v chromium-browser)"

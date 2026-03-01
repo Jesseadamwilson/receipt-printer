@@ -37,23 +37,85 @@ function buildHeaders(config) {
   return headers;
 }
 
-async function fetchHomeAssistantJson(config, endpoint) {
+async function requestHomeAssistant(config, endpoint, options = {}) {
   const baseUrl = sanitizeBaseUrl(config.haApiBaseUrl);
   if (!baseUrl) {
     throw new Error('HA API base URL is empty');
   }
 
   const url = `${baseUrl}${endpoint}`;
+  const method = asString(options.method, 'GET').toUpperCase();
+  const hasJsonBody = Object.prototype.hasOwnProperty.call(options, 'body');
+  const headers = buildHeaders(config);
+  const request = {
+    method,
+    headers
+  };
+
+  if (hasJsonBody) {
+    headers['Content-Type'] = 'application/json';
+    request.body = JSON.stringify(options.body);
+  }
+
   const response = await fetch(url, {
-    method: 'GET',
-    headers: buildHeaders(config)
+    ...request
   });
 
   if (!response.ok) {
-    throw new Error(`HA API request failed (${response.status}) for ${endpoint}`);
+    throw new Error(`HA API request failed (${response.status}) for ${method} ${endpoint}`);
+  }
+
+  const contentType = asString(response.headers.get('content-type'), '');
+  if (!contentType.includes('application/json')) {
+    const text = await response.text();
+    return text;
   }
 
   return response.json();
+}
+
+async function fetchHomeAssistantJson(config, endpoint) {
+  const result = await requestHomeAssistant(config, endpoint, {
+    method: 'GET'
+  });
+
+  if (result && typeof result === 'object') {
+    return result;
+  }
+
+  throw new Error(`HA API response was not JSON for GET ${endpoint}`);
+}
+
+function parseServiceName(value) {
+  const raw = asString(value, '').replace(/\//g, '.');
+  const parts = raw.split('.').map((part) => part.trim()).filter(Boolean);
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  return {
+    domain: parts[0],
+    service: parts[1],
+    normalized: `${parts[0]}.${parts[1]}`
+  };
+}
+
+async function callHomeAssistantService(config, serviceName, payload = {}) {
+  const parsed = parseServiceName(serviceName);
+  if (!parsed) {
+    throw new Error(`Invalid HA service: ${serviceName}`);
+  }
+
+  const endpoint = `/services/${encodeURIComponent(parsed.domain)}/${encodeURIComponent(parsed.service)}`;
+  const result = await requestHomeAssistant(config, endpoint, {
+    method: 'POST',
+    body: payload && typeof payload === 'object' ? payload : {}
+  });
+
+  return {
+    service: parsed.normalized,
+    result
+  };
 }
 
 function parseDomain(entityId) {
@@ -165,5 +227,6 @@ async function listHomeAssistantEntities(config, options = {}) {
 
 module.exports = {
   fetchHomeAssistantJson,
+  callHomeAssistantService,
   listHomeAssistantEntities
 };

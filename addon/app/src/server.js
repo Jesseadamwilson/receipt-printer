@@ -457,6 +457,13 @@ function createReceiptServer(options) {
             baseUrl: config.haApiBaseUrl,
             hasToken: Boolean(config.haApiToken)
           },
+          agendaPreRefresh: {
+            enabled: Boolean(config.agendaPreRefreshEnabled),
+            services: Array.isArray(config.agendaPreRefreshServices)
+              ? config.agendaPreRefreshServices
+              : [],
+            delayMs: Number(config.agendaPreRefreshDelayMs) || 0
+          },
           agendaIncludeDefaults: config.agendaIncludeDefaults,
           profiles: {
             storePath: profileStore.getStorePath(),

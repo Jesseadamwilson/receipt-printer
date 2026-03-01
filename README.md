@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.7.7`.
+Current package/add-on version: `0.7.8`.
 
 ## Win Sequence
 
@@ -167,6 +167,9 @@ Recommended options for your current Star test printer:
 - `printer_model`: `star-mc-print3`
 - `printer_cut_mode`: `full`
 - `profile_store_path`: `/config/receipt-printer/profiles.json`
+- `agenda_pre_refresh_enabled`: `true`
+- `agenda_pre_refresh_services`: `icloud.update`
+- `agenda_pre_refresh_delay_ms`: `2500`
 
 Profile editor (v0.7.x):
 
@@ -182,6 +185,7 @@ If agenda prints only subtitle/no content:
 1. Confirm `homeAssistantApi.hasToken` is `true` in `/health`.
 2. Check add-on logs for `[ha-data-source]` warnings.
 3. Verify entity IDs exist and have non-empty state values.
+4. Confirm `/health` shows `agendaPreRefresh.enabled=true` and expected service list.
 
 Validate add-on after start:
 
@@ -201,6 +205,15 @@ Template paths:
 - `template_message_path`
 - `template_daily_agenda_path`
 - Generic `template_path` is only used for explicit `/print/render` jobs.
+
+Agenda pre-refresh behavior:
+
+- For `POST /preview/daily-agenda` and `POST /print/daily-agenda` with `source=auto`, the service can call HA services before fetching states/events.
+- Default is `icloud.update`, once per agenda request.
+- Optional per-request overrides in payload:
+- `refreshBeforeFetch` (boolean)
+- `refreshServices` (array or comma-separated string of `domain.service`)
+- `refreshDelayMs` (int milliseconds to wait after refresh before reading states)
 
 Template tokens:
 

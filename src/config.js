@@ -23,6 +23,35 @@ function parseStringEnv(name, fallback) {
   return String(raw).trim();
 }
 
+function parseBooleanEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || !String(raw).trim()) {
+    return fallback;
+  }
+
+  const normalized = String(raw).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+function parseCsvEnv(name, fallback = []) {
+  const raw = parseStringEnv(name, '');
+  if (!raw) {
+    return [...fallback];
+  }
+
+  return raw
+    .split(',')
+    .map((item) => String(item).trim().replace(/\//g, '.'))
+    .filter(Boolean);
+}
+
 function resolveChromiumPath() {
   const configured = parseStringEnv('CHROMIUM_PATH', '');
   if (configured && fs.existsSync(configured)) {
@@ -113,6 +142,9 @@ function loadConfig() {
     ),
     haApiBaseUrl: parseStringEnv('HA_API_BASE_URL', 'http://supervisor/core/api'),
     haApiToken: parseStringEnv('HA_API_TOKEN', process.env.SUPERVISOR_TOKEN || ''),
+    agendaPreRefreshEnabled: parseBooleanEnv('AGENDA_PRE_REFRESH_ENABLED', true),
+    agendaPreRefreshServices: parseCsvEnv('AGENDA_PRE_REFRESH_SERVICES', ['icloud.update']),
+    agendaPreRefreshDelayMs: parseIntEnv('AGENDA_PRE_REFRESH_DELAY_MS', 2500),
     agendaSectionOrder: ['weather', 'sleep', 'events', 'battery', 'alerts', 'notes'],
     agendaTimeWindowHours: 24,
     agendaIncludeDefaults: {

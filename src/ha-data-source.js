@@ -1,4 +1,4 @@
-const { fetchHomeAssistantJson } = require('./ha-client');
+const { fetchHomeAssistantJson, callHomeAssistantService } = require('./ha-client');
 
 function asString(value, fallback = '') {
   if (value === undefined || value === null) {
@@ -36,6 +36,97 @@ function shouldTreatAsMissingValue(value) {
   }
 
   return false;
+}
+
+function parseBoolean(value, fallback = false) {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = asString(value, '').toLowerCase();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+}
+
+function parseServiceList(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => asString(item, '').replace(/\//g, '.'))
+      .filter(Boolean);
+  }
+
+  const raw = asString(value, '');
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(',')
+    .map((item) => asString(item, '').replace(/\//g, '.'))
+    .filter(Boolean);
+}
+
+function wait(ms) {
+  const delayMs = Number(ms);
+  if (!Number.isFinite(delayMs) || delayMs <= 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
+
+async function refreshHomeAssistantData(config, agendaInput = {}) {
+  const source = agendaInput && typeof agendaInput === 'object' ? agendaInput : {};
+  const refreshEnabled = parseBoolean(
+    source.refreshBeforeFetch,
+    parseBoolean(config.agendaPreRefreshEnabled, false)
+  );
+
+  if (!refreshEnabled) {
+    return;
+  }
+
+  const services = parseServiceList(source.refreshServices);
+  const configuredServices = services.length > 0
+    ? services
+    : parseServiceList(config.agendaPreRefreshServices);
+  if (configuredServices.length === 0) {
+    return;
+  }
+
+  const delayMs = Number.isFinite(Number(source.refreshDelayMs))
+    ? Math.max(0, Number(source.refreshDelayMs))
+    : Math.max(0, Number(config.agendaPreRefreshDelayMs) || 0);
+
+  let successCount = 0;
+  for (const serviceName of configuredServices) {
+    try {
+      await callHomeAssistantService(config, serviceName, {});
+      successCount += 1;
+    } catch (error) {
+      warn(`refresh service failed for ${serviceName}: ${error.message}`);
+    }
+  }
+
+  if (successCount > 0 && delayMs > 0) {
+    await wait(delayMs);
+  }
 }
 
 async function fetchState(config, entityId) {
@@ -249,6 +340,8 @@ async function hydrateDailyAgendaFromHomeAssistant(config, agendaInput = {}) {
   if (source === 'payload_only' || source === 'payload') {
     return input;
   }
+
+  await refreshHomeAssistantData(config, input);
 
   const output = {
     ...input
