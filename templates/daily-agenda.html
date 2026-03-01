@@ -73,7 +73,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        text-transform: none;
+        text-transform: uppercase;
         letter-spacing: 0.5px;
         line-height: 1;
         white-space: nowrap;
@@ -260,6 +260,10 @@
       .notification-row .leader-left {
         letter-spacing: 1px;
       }
+
+      .is-hidden {
+        display: none !important;
+      }
     </style>
     {{custom_css_block}}
   </head>
@@ -315,9 +319,9 @@
         {{{calendar_rows_html}}}
       </section>
 
-      <hr class="section-divider">
+      <hr class="section-divider {{notifications_divider_hidden_class}}">
 
-      <section class="list-section section--notifications">
+      <section class="list-section section--notifications {{notifications_hidden_class}}">
         <div class="metric-left">
           <img class="metric-icon" src="assets/bell-svgrepo-com.svg" alt="">
           <h2 class="metric-label">Notifications</h2>

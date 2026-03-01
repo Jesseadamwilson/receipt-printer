@@ -51,7 +51,7 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function toSentenceCase(value) {
+function toTitleCase(value) {
   const raw = asRawString(value, '');
   if (!raw) {
     return '';
@@ -62,8 +62,14 @@ function toSentenceCase(value) {
     return '';
   }
 
-  const lower = normalized.toLowerCase();
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
+  return normalized.replace(/[A-Za-z]+(?:'[A-Za-z]+)?/g, (token) => {
+    if (/^[A-Z0-9]{2,4}$/.test(token)) {
+      return token;
+    }
+
+    const lower = token.toLowerCase();
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  });
 }
 
 function buildParagraphHtml(lines, lineClass = 'line') {
@@ -107,8 +113,8 @@ function formatAgendaEventLine(event) {
   }
 
   const time = asString(event.time, '');
-  const title = toSentenceCase(event.title);
-  const location = toSentenceCase(event.location);
+  const title = toTitleCase(event.title);
+  const location = toTitleCase(event.location);
   const left = [time, title].filter(Boolean).join(' ');
   if (!left && !location) {
     return '';
@@ -302,7 +308,7 @@ function compactMeridiem(timeText) {
 }
 
 function wrapTextByWordLimits(value, firstLineLimit = 28, otherLineLimit = 36) {
-  const text = toSentenceCase(value);
+  const text = toTitleCase(value);
   if (!text) {
     return [];
   }
@@ -380,8 +386,8 @@ function buildCalendarRowsHtml(events) {
     }
 
     const time = compactMeridiem(event.time) || '--';
-    const title = toSentenceCase(event.title);
-    const location = toSentenceCase(event.location);
+    const title = toTitleCase(event.title);
+    const location = toTitleCase(event.location);
     const fullText = location
       ? [title || 'Event', location].filter(Boolean).join(' | ')
       : (title || 'Event');
@@ -413,7 +419,7 @@ function buildCalendarRowsHtml(events) {
 }
 
 function splitAlertLine(value) {
-  const text = toSentenceCase(value);
+  const text = toTitleCase(value);
   if (!text) {
     return null;
   }
@@ -453,7 +459,7 @@ function buildNotificationRowsHtml(alerts, notesLines) {
 
   const noteValues = Array.isArray(notesLines) ? notesLines : [];
   for (const note of noteValues) {
-    const text = toSentenceCase(note);
+    const text = toTitleCase(note);
     if (!text) {
       continue;
     }
@@ -610,27 +616,28 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
   const batteryItems = batteries.map((battery, index) => buildBatteryItemModel(battery, index));
   const batteryLines = batteries.map(formatBatteryLine).filter(Boolean);
   const alerts = Array.isArray(source.alerts)
-    ? source.alerts.map((alert) => toSentenceCase(alert)).filter(Boolean)
+    ? source.alerts.map((alert) => toTitleCase(alert)).filter(Boolean)
     : [];
-  const notesText = toSentenceCase(source.notes);
+  const notesText = toTitleCase(source.notes);
   const notesLines = notesText
-    ? notesText.split(/\r?\n/g).map((line) => toSentenceCase(line)).filter(Boolean)
+    ? notesText.split(/\r?\n/g).map((line) => toTitleCase(line)).filter(Boolean)
     : [];
   const contentLines = Array.isArray(template.lines) ? template.lines : [];
 
   const currentTemp = asString(weather.temp, '');
-  const weatherSummary = toSentenceCase(weather.summary);
+  const weatherSummary = toTitleCase(weather.summary);
   const weatherHigh = asString(weather.high, '');
   const weatherLow = asString(weather.low, '');
   const hoursOfSleep = asString(sleep.hours, '');
   const printedAt = asString(template.printedAt, generatedAt.toLocaleString());
-  const subtitle = toSentenceCase(source.subtitle);
-  const summaryLabel = toSentenceCase(source.summaryLabel || 'Summary');
-  const sleepLine = hoursOfSleep ? `${hoursOfSleep} hours last night` : '';
+  const subtitle = toTitleCase(source.subtitle);
+  const summaryLabel = toTitleCase(source.summaryLabel || 'Summary');
+  const sleepLine = hoursOfSleep ? `${hoursOfSleep} Hours Last Night` : '';
   const weatherLine = [currentTemp, weatherSummary].filter(Boolean).join(' | ');
-  const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim();
+  const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim().toUpperCase();
   const calendarRowsHtml = buildCalendarRowsHtml(events);
   const notificationRowsHtml = buildNotificationRowsHtml(alerts, notesLines);
+  const hasNotifications = Boolean(notificationRowsHtml && notificationRowsHtml.trim());
   const deviceBatteryItemsHtml = buildDeviceBatteryItemsHtml(batteryItems);
 
   return {
@@ -669,6 +676,8 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData) {
     alerts_html: buildListHtml(alerts, 'alerts-list', 'alert-item'),
     notification_rows_html: notificationRowsHtml,
     notifications_count: String(alerts.length + notesLines.length),
+    notifications_hidden_class: hasNotifications ? '' : 'is-hidden',
+    notifications_divider_hidden_class: hasNotifications ? '' : 'is-hidden',
     notes: notesText,
     notes_html: buildParagraphHtml(notesLines, 'notes-line'),
     content_text: contentLines.join('\n'),

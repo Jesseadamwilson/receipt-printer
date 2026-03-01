@@ -1,7 +1,7 @@
 # HA Receipt Printer Spike (Fresh Start)
 
 This is a clean Node.js baseline focused on reliable network printing, then exposing that flow over a local API.
-Current package/add-on version: `0.8.1`.
+Current package/add-on version: `0.8.2`.
 
 ## Win Sequence
 
