@@ -278,7 +278,7 @@
       }
 
       .calendar-gantt {
-        margin-top: 10px;
+        margin-top: 18px;
       }
 
       .calendar-gantt-rows {
@@ -323,9 +323,9 @@
 
       .calendar-gantt-hour-tick {
         display: block;
-        width: 1.5px;
-        height: 6px;
-        background: var(--ink);
+        width: 0;
+        height: 7px;
+        border-left: 1px solid var(--ink);
       }
 
       .calendar-gantt-hour-label {
@@ -338,36 +338,18 @@
       }
 
       .calendar-gantt-hour-major {
-        font-family: "GothamBold", sans-serif;
-        font-size: 12px;
+        font-family: "GothamMedium", sans-serif;
+        font-size: 13px;
         line-height: 1;
         white-space: nowrap;
       }
 
       .calendar-gantt-hour-meridiem {
-        font-family: "GothamBold", sans-serif;
-        font-size: 8px;
+        font-family: "GothamMedium", sans-serif;
+        font-size: 9px;
         line-height: 1;
         letter-spacing: 0.4px;
         white-space: nowrap;
-      }
-
-      .calendar-gantt-hour-marker.is-start {
-        transform: none;
-      }
-
-      .calendar-gantt-hour-marker.is-start .calendar-gantt-hour-label {
-        transform: none;
-        align-items: flex-start;
-      }
-
-      .calendar-gantt-hour-marker.is-end {
-        transform: translateX(-100%);
-      }
-
-      .calendar-gantt-hour-marker.is-end .calendar-gantt-hour-label {
-        transform: translateX(-100%);
-        align-items: flex-end;
       }
 
       .notification-row .leader-left {
