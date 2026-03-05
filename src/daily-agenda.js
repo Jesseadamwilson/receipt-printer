@@ -140,7 +140,35 @@ function formatSleepLines(sleep) {
     return [];
   }
 
-  return [`${hours} hours`];
+  const hoursMinutesMatch = hours.match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+  if (hoursMinutesMatch) {
+    const h = Number.parseInt(hoursMinutesMatch[1], 10);
+    const m = Number.parseInt(hoursMinutesMatch[2], 10);
+    if (Number.isFinite(h) && Number.isFinite(m) && h >= 0 && m >= 0 && m < 60) {
+      return [`${h}h ${m}m last night`];
+    }
+  }
+
+  const explicitUnitMatch = hours
+    .toLowerCase()
+    .match(/^(\d{1,2})\s*h(?:ours?)?(?:\s*(\d{1,2})\s*m(?:in(?:utes?)?)?)?$/);
+  if (explicitUnitMatch) {
+    const h = Number.parseInt(explicitUnitMatch[1], 10);
+    const m = Number.parseInt(explicitUnitMatch[2] || '0', 10);
+    if (Number.isFinite(h) && Number.isFinite(m) && h >= 0 && m >= 0 && m < 60) {
+      return [`${h}h ${m}m last night`];
+    }
+  }
+
+  const numericHours = Number(hours.replace(',', '.'));
+  if (Number.isFinite(numericHours) && numericHours >= 0) {
+    const totalMinutes = Math.round(numericHours * 60);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return [`${h}h ${m}m last night`];
+  }
+
+  return [`${hours} last night`];
 }
 
 function formatEventsLines(events) {

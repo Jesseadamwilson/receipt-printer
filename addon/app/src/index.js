@@ -149,6 +149,53 @@ function normalizeWeatherSummary(value) {
   return toTitleCase(withSpaces);
 }
 
+function parseSleepDurationMinutes(value) {
+  const raw = asString(value, '');
+  if (!raw) {
+    return null;
+  }
+
+  const hoursMinutesMatch = raw.match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+  if (hoursMinutesMatch) {
+    const hours = Number.parseInt(hoursMinutesMatch[1], 10);
+    const minutes = Number.parseInt(hoursMinutesMatch[2], 10);
+    if (Number.isFinite(hours) && Number.isFinite(minutes) && hours >= 0 && minutes >= 0 && minutes < 60) {
+      return (hours * 60) + minutes;
+    }
+  }
+
+  const explicitUnitMatch = raw
+    .toLowerCase()
+    .match(/^(\d{1,2})\s*h(?:ours?)?(?:\s*(\d{1,2})\s*m(?:in(?:utes?)?)?)?$/);
+  if (explicitUnitMatch) {
+    const hours = Number.parseInt(explicitUnitMatch[1], 10);
+    const minutes = Number.parseInt(explicitUnitMatch[2] || '0', 10);
+    if (Number.isFinite(hours) && Number.isFinite(minutes) && hours >= 0 && minutes >= 0 && minutes < 60) {
+      return (hours * 60) + minutes;
+    }
+  }
+
+  const decimalRaw = raw.replace(',', '.');
+  const numericHours = Number(decimalRaw);
+  if (Number.isFinite(numericHours) && numericHours >= 0) {
+    return Math.round(numericHours * 60);
+  }
+
+  return null;
+}
+
+function formatSleepDuration(value) {
+  const totalMinutes = parseSleepDurationMinutes(value);
+  if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
+    return '';
+  }
+
+  const rounded = Math.round(totalMinutes);
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
+  return `${hours}h ${minutes}m`;
+}
+
 function buildParagraphHtml(lines, lineClass = 'line') {
   const source = Array.isArray(lines) ? lines : [];
   return source
@@ -672,10 +719,14 @@ function formatClockMarkerParts(value) {
   };
 }
 
-function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs) {
+function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs, options = {}) {
   if (!Number.isFinite(chartStartMs) || !Number.isFinite(chartEndMs) || chartEndMs <= chartStartMs) {
     return '';
   }
+
+  const mapPercentage = typeof options.mapPercentage === 'function'
+    ? options.mapPercentage
+    : (value) => value;
 
   const hourMs = 60 * 60 * 1000;
   const totalMs = chartEndMs - chartStartMs;
@@ -700,7 +751,7 @@ function buildCalendarGanttHourMarkers(chartStartMs, chartEndMs) {
 
   return uniquePoints.map((point, index) => {
     const leftPct = ((point - chartStartMs) / totalMs) * 100;
-    const clampedLeftPct = Math.max(0, Math.min(100, leftPct));
+    const clampedLeftPct = Math.max(0, Math.min(100, mapPercentage(leftPct)));
     const isStart = index === 0;
     const isEnd = index === uniquePoints.length - 1;
     const markerClass = `calendar-gantt-hour-marker${isStart ? ' is-start' : ''}${isEnd ? ' is-end' : ''}`;
@@ -798,6 +849,12 @@ function buildCalendarGantt(events, options = {}) {
     chartEndMs = chartStartMs + (60 * 60 * 1000);
   }
 
+  const axisInsetPct = Math.max(0, Math.min(12, Number(options.axisInsetPct) || 2.8));
+  const mapToInsetPct = (rawPct) => {
+    const clampedRaw = Math.max(0, Math.min(100, rawPct));
+    return axisInsetPct + ((clampedRaw / 100) * (100 - (axisInsetPct * 2)));
+  };
+
   const totalMs = chartEndMs - chartStartMs;
   const visibleRows = rows.filter((row) => row.endMs > chartStartMs && row.startMs < chartEndMs);
   if (visibleRows.length === 0) {
@@ -813,8 +870,11 @@ function buildCalendarGantt(events, options = {}) {
   const rowsHtml = visibleRows.map((row) => {
     const clampedStart = Math.max(row.startMs, chartStartMs);
     const clampedEnd = Math.min(row.endMs, chartEndMs);
-    const leftPct = ((clampedStart - chartStartMs) / totalMs) * 100;
-    const widthPct = Math.max(1, ((clampedEnd - clampedStart) / totalMs) * 100);
+    const rawLeftPct = ((clampedStart - chartStartMs) / totalMs) * 100;
+    const rawRightPct = ((clampedEnd - chartStartMs) / totalMs) * 100;
+    const leftPct = mapToInsetPct(rawLeftPct);
+    const rightPct = mapToInsetPct(rawRightPct);
+    const widthPct = Math.max(1, rightPct - leftPct);
 
     return [
       '<div class="calendar-gantt-row">',
@@ -827,7 +887,9 @@ function buildCalendarGantt(events, options = {}) {
 
   const startClock = formatClockLabel(chartStartMs);
   const endClock = formatClockLabel(chartEndMs);
-  const hourMarkersHtml = buildCalendarGanttHourMarkers(chartStartMs, chartEndMs);
+  const hourMarkersHtml = buildCalendarGanttHourMarkers(chartStartMs, chartEndMs, {
+    mapPercentage: mapToInsetPct
+  });
 
   return {
     rowsHtml,
@@ -1050,10 +1112,13 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData, renderOpti
   const weatherHigh = asString(weather.high, '');
   const weatherLow = asString(weather.low, '');
   const hoursOfSleep = asString(sleep.hours, '');
+  const sleepDuration = formatSleepDuration(hoursOfSleep);
   const printedAt = asString(template.printedAt, generatedAt.toLocaleString());
   const subtitle = toTitleCase(source.subtitle);
   const summaryLabel = toTitleCase(source.summaryLabel || 'Summary');
-  const sleepLine = hoursOfSleep ? `${hoursOfSleep} Hours Last Night` : '';
+  const sleepLine = sleepDuration
+    ? `${sleepDuration} Last Night`
+    : (hoursOfSleep ? `${hoursOfSleep} Last Night` : '');
   const weatherLine = [currentTemp, weatherSummary].filter(Boolean).join(' | ');
   const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim().toUpperCase();
   const calendarRowsHtml = buildCalendarRowsHtml(events);
@@ -1085,6 +1150,7 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData, renderOpti
     weather_high: weatherHigh,
     weather_low: weatherLow,
     hours_of_sleep: hoursOfSleep,
+    hours_of_sleep_hm: sleepDuration,
     sleep_line: sleepLine,
     weather_line: weatherLine,
     summary_label: summaryLabel,

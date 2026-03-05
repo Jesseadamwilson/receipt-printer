@@ -149,6 +149,53 @@ function normalizeWeatherSummary(value) {
   return toTitleCase(withSpaces);
 }
 
+function parseSleepDurationMinutes(value) {
+  const raw = asString(value, '');
+  if (!raw) {
+    return null;
+  }
+
+  const hoursMinutesMatch = raw.match(/^(\d{1,2})\s*:\s*(\d{1,2})$/);
+  if (hoursMinutesMatch) {
+    const hours = Number.parseInt(hoursMinutesMatch[1], 10);
+    const minutes = Number.parseInt(hoursMinutesMatch[2], 10);
+    if (Number.isFinite(hours) && Number.isFinite(minutes) && hours >= 0 && minutes >= 0 && minutes < 60) {
+      return (hours * 60) + minutes;
+    }
+  }
+
+  const explicitUnitMatch = raw
+    .toLowerCase()
+    .match(/^(\d{1,2})\s*h(?:ours?)?(?:\s*(\d{1,2})\s*m(?:in(?:utes?)?)?)?$/);
+  if (explicitUnitMatch) {
+    const hours = Number.parseInt(explicitUnitMatch[1], 10);
+    const minutes = Number.parseInt(explicitUnitMatch[2] || '0', 10);
+    if (Number.isFinite(hours) && Number.isFinite(minutes) && hours >= 0 && minutes >= 0 && minutes < 60) {
+      return (hours * 60) + minutes;
+    }
+  }
+
+  const decimalRaw = raw.replace(',', '.');
+  const numericHours = Number(decimalRaw);
+  if (Number.isFinite(numericHours) && numericHours >= 0) {
+    return Math.round(numericHours * 60);
+  }
+
+  return null;
+}
+
+function formatSleepDuration(value) {
+  const totalMinutes = parseSleepDurationMinutes(value);
+  if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
+    return '';
+  }
+
+  const rounded = Math.round(totalMinutes);
+  const hours = Math.floor(rounded / 60);
+  const minutes = rounded % 60;
+  return `${hours}h ${minutes}m`;
+}
+
 function buildParagraphHtml(lines, lineClass = 'line') {
   const source = Array.isArray(lines) ? lines : [];
   return source
@@ -1065,10 +1112,13 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData, renderOpti
   const weatherHigh = asString(weather.high, '');
   const weatherLow = asString(weather.low, '');
   const hoursOfSleep = asString(sleep.hours, '');
+  const sleepDuration = formatSleepDuration(hoursOfSleep);
   const printedAt = asString(template.printedAt, generatedAt.toLocaleString());
   const subtitle = toTitleCase(source.subtitle);
   const summaryLabel = toTitleCase(source.summaryLabel || 'Summary');
-  const sleepLine = hoursOfSleep ? `${hoursOfSleep} Hours Last Night` : '';
+  const sleepLine = sleepDuration
+    ? `${sleepDuration} Last Night`
+    : (hoursOfSleep ? `${hoursOfSleep} Last Night` : '');
   const weatherLine = [currentTemp, weatherSummary].filter(Boolean).join(' | ');
   const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim().toUpperCase();
   const calendarRowsHtml = buildCalendarRowsHtml(events);
@@ -1100,6 +1150,7 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData, renderOpti
     weather_high: weatherHigh,
     weather_low: weatherLow,
     hours_of_sleep: hoursOfSleep,
+    hours_of_sleep_hm: sleepDuration,
     sleep_line: sleepLine,
     weather_line: weatherLine,
     summary_label: summaryLabel,
