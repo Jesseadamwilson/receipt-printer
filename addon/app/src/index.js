@@ -1061,6 +1061,84 @@ function readPackageMetadata() {
   }
 }
 
+function resolveAgendaStatePath(config) {
+  const profileStorePath = asString(config && config.profileStorePath, '');
+  if (profileStorePath) {
+    return path.join(path.dirname(profileStorePath), 'agenda-state.json');
+  }
+
+  const outputDir = asString(config && config.outputDir, path.resolve(process.cwd(), 'output'));
+  return path.join(outputDir, 'agenda-state.json');
+}
+
+function readAgendaState(config) {
+  const agendaStatePath = resolveAgendaStatePath(config);
+  try {
+    const raw = fs.readFileSync(agendaStatePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (_error) {
+    return {};
+  }
+}
+
+function writeAgendaState(config, state) {
+  const agendaStatePath = resolveAgendaStatePath(config);
+  fs.mkdirSync(path.dirname(agendaStatePath), { recursive: true });
+  fs.writeFileSync(
+    agendaStatePath,
+    JSON.stringify(state && typeof state === 'object' ? state : {}, null, 2),
+    'utf8'
+  );
+}
+
+function applySleepStalePolicy(config, hydratedInput) {
+  const source = hydratedInput && typeof hydratedInput === 'object' ? hydratedInput : {};
+  const sleep = source.sleep && typeof source.sleep === 'object' ? { ...source.sleep } : null;
+  if (!sleep) {
+    return {
+      hydratedInput: source,
+      sleepRaw: '',
+      staleDetected: false,
+      previousSleepRaw: ''
+    };
+  }
+
+  const currentSleepRaw = asString(sleep.hours, '');
+  const agendaState = readAgendaState(config);
+  const previousSleepRaw = asString(agendaState.lastPrintedSleepRaw, '');
+  const staleDetected = Boolean(currentSleepRaw && previousSleepRaw && currentSleepRaw === previousSleepRaw);
+
+  if (staleDetected) {
+    sleep.notRecorded = true;
+    sleep.line = 'Not Recorded';
+  }
+
+  return {
+    hydratedInput: {
+      ...source,
+      sleep
+    },
+    sleepRaw: currentSleepRaw,
+    staleDetected,
+    previousSleepRaw
+  };
+}
+
+function persistLastPrintedSleepValue(config, sleepRaw) {
+  const value = asString(sleepRaw, '');
+  if (!value) {
+    return;
+  }
+
+  const agendaState = readAgendaState(config);
+  writeAgendaState(config, {
+    ...agendaState,
+    lastPrintedSleepRaw: value,
+    lastPrintedAt: new Date().toISOString()
+  });
+}
+
 function buildDefaultPrintOptions(config, inputPrint = {}) {
   const source = inputPrint && typeof inputPrint === 'object' ? inputPrint : {};
   return {
@@ -1076,6 +1154,7 @@ function summarizeAgendaInput(input) {
   return {
     weather: Boolean(source.weather),
     sleep: Boolean(source.sleep),
+    sleepStaleDetected: Boolean(source.sleep && source.sleep.notRecorded),
     events: Array.isArray(source.events) ? source.events.length : 0,
     batteries: Array.isArray(source.batteries) ? source.batteries.length : 0,
     alerts: Array.isArray(source.alerts) ? source.alerts.length : 0,
@@ -1112,13 +1191,15 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData, renderOpti
   const weatherHigh = asString(weather.high, '');
   const weatherLow = asString(weather.low, '');
   const hoursOfSleep = asString(sleep.hours, '');
-  const sleepDuration = formatSleepDuration(hoursOfSleep);
+  const sleepLineOverride = asString(sleep.line, '');
+  const sleepIsNotRecorded = /^not\s*recorded$/i.test(sleepLineOverride);
+  const effectiveHoursOfSleep = sleepIsNotRecorded ? '' : hoursOfSleep;
+  const sleepDuration = formatSleepDuration(effectiveHoursOfSleep);
   const printedAt = asString(template.printedAt, generatedAt.toLocaleString());
   const subtitle = toTitleCase(source.subtitle);
   const summaryLabel = toTitleCase(source.summaryLabel || 'Summary');
-  const sleepLine = sleepDuration
-    ? `${sleepDuration} Last Night`
-    : (hoursOfSleep ? `${hoursOfSleep} Last Night` : '');
+  const sleepLine = sleepLineOverride
+    || (sleepDuration ? `${sleepDuration} Last Night` : (effectiveHoursOfSleep ? `${effectiveHoursOfSleep} Last Night` : ''));
   const weatherLine = [currentTemp, weatherSummary].filter(Boolean).join(' | ');
   const dateChip = `${dateTokens.day_of_week} ${dateTokens.month_day}`.trim().toUpperCase();
   const calendarRowsHtml = buildCalendarRowsHtml(events);
@@ -1149,7 +1230,7 @@ function buildDailyAgendaTemplateContext(hydratedInput, templateData, renderOpti
     current_temp: currentTemp,
     weather_high: weatherHigh,
     weather_low: weatherLow,
-    hours_of_sleep: hoursOfSleep,
+    hours_of_sleep: effectiveHoursOfSleep,
     hours_of_sleep_hm: sleepDuration,
     sleep_line: sleepLine,
     weather_line: weatherLine,
@@ -1326,11 +1407,13 @@ async function runDailyAgendaJob(config, deps, payload) {
     : {};
 
   const hydratedInput = await hydrateDailyAgendaFromHomeAssistant(effectiveConfig, rawInput);
-  const templateData = buildDailyAgendaTemplateData(hydratedInput, {
+  const sleepPolicy = applySleepStalePolicy(effectiveConfig, hydratedInput);
+  const agendaInput = sleepPolicy.hydratedInput;
+  const templateData = buildDailyAgendaTemplateData(agendaInput, {
     includeDefaults: config.agendaIncludeDefaults,
     sectionOrder: effectiveConfig.agendaSectionOrder
   });
-  const templateContext = buildDailyAgendaTemplateContext(hydratedInput, templateData, {
+  const templateContext = buildDailyAgendaTemplateContext(agendaInput, templateData, {
     ganttDayStartTime: asString(effectiveConfig.agendaGanttDayStartTime, ''),
     ganttDayEndTime: asString(effectiveConfig.agendaGanttDayEndTime, '')
   });
@@ -1344,12 +1427,17 @@ async function runDailyAgendaJob(config, deps, payload) {
     print: payload.print
   });
 
+  persistLastPrintedSleepValue(effectiveConfig, sleepPolicy.sleepRaw);
+
   return {
     ...result,
     mode: 'daily_agenda',
     include: templateData.include,
     sectionOrder: templateData.sectionOrder,
-    sourceDataSummary: summarizeAgendaInput(hydratedInput),
+    sourceDataSummary: {
+      ...summarizeAgendaInput(agendaInput),
+      previousSleepRaw: sleepPolicy.previousSleepRaw
+    },
     profile: selectedProfile
       ? {
         id: selectedProfile.id,
@@ -1422,11 +1510,13 @@ async function previewDailyAgenda(config, deps, payload) {
       }
   );
 
-  const templateData = buildDailyAgendaTemplateData(hydratedInput, {
+  const sleepPolicy = applySleepStalePolicy(effectiveConfig, hydratedInput);
+  const agendaInput = sleepPolicy.hydratedInput;
+  const templateData = buildDailyAgendaTemplateData(agendaInput, {
     includeDefaults: config.agendaIncludeDefaults,
     sectionOrder: effectiveConfig.agendaSectionOrder
   });
-  const templateContext = buildDailyAgendaTemplateContext(hydratedInput, templateData, {
+  const templateContext = buildDailyAgendaTemplateContext(agendaInput, templateData, {
     ganttDayStartTime: asString(effectiveConfig.agendaGanttDayStartTime, ''),
     ganttDayEndTime: asString(effectiveConfig.agendaGanttDayEndTime, '')
   });
@@ -1442,7 +1532,10 @@ async function previewDailyAgenda(config, deps, payload) {
   return {
     imagePath,
     templateData,
-    sourceDataSummary: summarizeAgendaInput(hydratedInput),
+    sourceDataSummary: {
+      ...summarizeAgendaInput(agendaInput),
+      previousSleepRaw: sleepPolicy.previousSleepRaw
+    },
     profile: selectedProfile
       ? {
         id: selectedProfile.id,

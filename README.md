@@ -200,13 +200,11 @@ curl -X POST "http://homeassistant.local:8099/print/text" \
 Template paths:
 
 - Canonical template location is `/app/templates/*` (bundled in repo at `addon/app/templates/*`).
-- Message print jobs use `message.html`.
-- Daily agenda print jobs use `daily-agenda.html`.
-- Add-on options can override each path:
-- `template_message_path`
-- `template_daily_agenda_path`
-- Generic `template_path` is only used for explicit `/print/render` jobs.
-- Legacy `/config/receipt-printer/templates/*` paths are still accepted as fallback, but `/app/templates/*` is resolved first.
+- `POST /preview/*` and `POST /print/*` use the same template files.
+- Message print jobs use `/app/templates/message.html`.
+- Daily agenda print jobs use `/app/templates/daily-agenda.html`.
+- Generic render jobs use `/app/templates/receipt.html`.
+- Template path overrides were removed from add-on options to keep one source of truth.
 
 Agenda pre-refresh behavior:
 

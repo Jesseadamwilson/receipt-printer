@@ -69,61 +69,13 @@ function resolveChromiumPath() {
 }
 
 function resolveTemplatePaths() {
-  const fileName = 'receipt.html';
-  const configured = parseStringEnv('TEMPLATE_PATH', '');
-  const bundledPath = path.resolve(process.cwd(), 'templates', fileName);
-  const legacyPath = `/config/receipt-printer/templates/${fileName}`;
-  const candidates = [];
-
-  const normalizedConfigured = configured
-    ? (path.isAbsolute(configured) ? configured : path.resolve(process.cwd(), configured))
-    : '';
-
-  if (normalizedConfigured && normalizedConfigured !== legacyPath) {
-    candidates.push(configured);
-  }
-
-  // Canonical in-repo/add-on location.
-  candidates.push(bundledPath);
-  // Legacy location for backward compatibility.
-  candidates.push(legacyPath);
-
-  const normalized = candidates.map((candidate) => {
-    return path.isAbsolute(candidate)
-      ? candidate
-      : path.resolve(process.cwd(), candidate);
-  });
-
-  return Array.from(new Set(normalized));
+  // Single source of truth for both preview and print rendering.
+  return [path.resolve(process.cwd(), 'templates', 'receipt.html')];
 }
 
 function resolveNamedTemplatePaths(envName, defaultFiles) {
-  const configured = parseStringEnv(envName, '');
-  const candidates = [];
-
-  const legacyPaths = defaultFiles.map((fileName) => `/config/receipt-printer/templates/${fileName}`);
-  const normalizedConfigured = configured
-    ? (path.isAbsolute(configured) ? configured : path.resolve(process.cwd(), configured))
-    : '';
-
-  if (normalizedConfigured && !legacyPaths.includes(normalizedConfigured)) {
-    candidates.push(configured);
-  }
-
-  for (const fileName of defaultFiles) {
-    // Canonical in-repo/add-on location.
-    candidates.push(path.resolve(process.cwd(), 'templates', fileName));
-    // Legacy location for backward compatibility.
-    candidates.push(`/config/receipt-printer/templates/${fileName}`);
-  }
-
-  const normalized = candidates.map((candidate) => {
-    return path.isAbsolute(candidate)
-      ? candidate
-      : path.resolve(process.cwd(), candidate);
-  });
-
-  return Array.from(new Set(normalized));
+  const _unused = envName;
+  return defaultFiles.map((fileName) => path.resolve(process.cwd(), 'templates', fileName));
 }
 
 function loadConfig() {
