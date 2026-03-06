@@ -68,26 +68,39 @@ function resolveChromiumPath() {
   return candidates.find((candidate) => fs.existsSync(candidate)) || '';
 }
 
-function resolveTemplatePaths() {
-  // Single source of truth for both preview and print rendering.
-  return [path.resolve(process.cwd(), 'templates', 'receipt.html')];
+function resolveTemplateDirectory() {
+  const candidates = [
+    path.resolve(process.cwd(), 'templates'),
+    path.resolve(process.cwd(), 'addon', 'app', 'templates')
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) {
+        return candidate;
+      }
+    } catch (_error) {
+      // Ignore inaccessible candidate paths.
+    }
+  }
+
+  return candidates[0];
 }
 
-function resolveNamedTemplatePaths(envName, defaultFiles) {
-  const _unused = envName;
-  return defaultFiles.map((fileName) => path.resolve(process.cwd(), 'templates', fileName));
+function resolveTemplatePaths(templateDir) {
+  // Single source of truth for both preview and print rendering.
+  return [path.resolve(templateDir, 'receipt.html')];
+}
+
+function resolveNamedTemplatePaths(templateDir, defaultFiles) {
+  return defaultFiles.map((fileName) => path.resolve(templateDir, fileName));
 }
 
 function loadConfig() {
-  const templatePaths = resolveTemplatePaths();
-  const messageTemplatePaths = resolveNamedTemplatePaths(
-    'TEMPLATE_MESSAGE_PATH',
-    ['message.html']
-  );
-  const dailyAgendaTemplatePaths = resolveNamedTemplatePaths(
-    'TEMPLATE_DAILY_AGENDA_PATH',
-    ['daily-agenda.html']
-  );
+  const templateDir = resolveTemplateDirectory();
+  const templatePaths = resolveTemplatePaths(templateDir);
+  const messageTemplatePaths = resolveNamedTemplatePaths(templateDir, ['message.html']);
+  const dailyAgendaTemplatePaths = resolveNamedTemplatePaths(templateDir, ['daily-agenda.html']);
 
   return {
     apiHost: parseStringEnv('API_HOST', '0.0.0.0'),
@@ -106,7 +119,7 @@ function loadConfig() {
     queueRetryDelayMs: parseIntEnv('QUEUE_RETRY_DELAY_MS', 1000),
     customCssPath: parseStringEnv(
       'CUSTOM_CSS_PATH',
-      path.resolve(process.cwd(), 'templates', 'custom.css')
+      path.resolve(templateDir, 'custom.css')
     ),
     haApiBaseUrl: parseStringEnv('HA_API_BASE_URL', 'http://supervisor/core/api'),
     haApiToken: parseStringEnv('HA_API_TOKEN', process.env.SUPERVISOR_TOKEN || ''),
@@ -129,6 +142,7 @@ function loadConfig() {
     chromiumPath: resolveChromiumPath(),
     publicDir: path.resolve(process.cwd(), 'public'),
     outputDir: path.resolve(process.cwd(), 'output'),
+    templateDir,
     templatePath: templatePaths[0],
     templatePaths,
     messageTemplatePaths,
