@@ -10,11 +10,16 @@ const {
 } = require('./render-template');
 const { buildDailyAgendaTemplateData } = require('./daily-agenda');
 const { hydrateDailyAgendaFromHomeAssistant } = require('./ha-data-source');
-const { listHomeAssistantEntities } = require('./ha-client');
+const {
+  fetchHomeAssistantJson,
+  callHomeAssistantService,
+  listHomeAssistantEntities
+} = require('./ha-client');
 const {
   createProfileStore,
   deriveAgendaSourceConfigFromProfile
 } = require('./profile-store');
+const { createPrinterStore } = require('./printer-store');
 const {
   encodeTextReceipt,
   encodeImageReceipt,
@@ -1218,12 +1223,47 @@ async function runTextJob(config, payload) {
   };
 }
 
+async function runAssignedScript(config, profile) {
+  const scriptEntity = asString(profile && profile.scriptEntity, '');
+  if (!scriptEntity) {
+    return null;
+  }
+
+  return callHomeAssistantService(config, scriptEntity, {});
+}
+
+async function resolveMessageEntityValue(config, profile) {
+  const entityId = asString(profile && profile.messageEntity, '');
+  if (!entityId) {
+    return null;
+  }
+
+  const state = await fetchHomeAssistantJson(
+    config,
+    `/states/${encodeURIComponent(entityId)}`
+  );
+  const value = asRawString(state && state.state, '');
+  if (!value || ['unknown', 'unavailable'].includes(value.toLowerCase())) {
+    return null;
+  }
+
+  return { entityId, value };
+}
+
 async function runMessageJob(config, deps, payload) {
   const safePayload = payload && typeof payload === 'object' ? payload : {};
   const profileStore = deps && deps.profileStore ? deps.profileStore : null;
   const requestedProfileId = asString(safePayload.profileId, '');
   const selectedProfile = resolveMessageProfile(profileStore, requestedProfileId);
-  const templateData = buildMessageTemplateData(safePayload, selectedProfile);
+  const script = await runAssignedScript(config, selectedProfile);
+  let messageEntity = null;
+  if (!safePayload.hasMessageOverride && !(Array.isArray(safePayload.lines) && safePayload.lines.length > 0)) {
+    messageEntity = await resolveMessageEntityValue(config, selectedProfile);
+  }
+  const effectivePayload = messageEntity
+    ? { ...safePayload, hasMessageOverride: true, message: messageEntity.value }
+    : safePayload;
+  const templateData = buildMessageTemplateData(effectivePayload, selectedProfile);
 
   const result = await runRenderJob(config, {
     templateType: 'message',
@@ -1242,10 +1282,12 @@ async function runMessageJob(config, deps, payload) {
       }
       : null,
     source: {
-      usedProfileBody: !safePayload.hasMessageOverride,
+      usedProfileBody: !safePayload.hasMessageOverride && !messageEntity,
       usedPayloadMessage: safePayload.hasMessageOverride,
-      usedPayloadLines: Array.isArray(safePayload.lines) && safePayload.lines.length > 0
-    }
+      usedPayloadLines: Array.isArray(safePayload.lines) && safePayload.lines.length > 0,
+      messageEntity: messageEntity ? messageEntity.entityId : ''
+    },
+    script
   };
 }
 
@@ -1316,6 +1358,8 @@ async function runDailyAgendaJob(config, deps, payload) {
       : profileStore.getDefaultDailyAgendaProfile())
     : null;
 
+  const script = await runAssignedScript(config, selectedProfile);
+
   const profileSources = selectedProfile
     ? deriveAgendaSourceConfigFromProfile(selectedProfile, config)
     : null;
@@ -1365,7 +1409,8 @@ async function runDailyAgendaJob(config, deps, payload) {
         template: selectedProfile.template,
         itemCount: Array.isArray(selectedProfile.items) ? selectedProfile.items.length : 0
       }
-      : null
+      : null,
+    script
   };
 }
 
@@ -1373,7 +1418,19 @@ async function previewMessage(config, deps, payload) {
   const profileStore = deps && deps.profileStore ? deps.profileStore : null;
   const requestedProfileId = asString(payload && payload.profileId, '');
   const selectedProfile = resolveMessageProfile(profileStore, requestedProfileId);
-  const templateData = buildMessageTemplateData(payload, selectedProfile);
+  const safePayload = payload && typeof payload === 'object' ? payload : {};
+  const normalizedPayload = {
+    ...safePayload,
+    hasMessageOverride: Object.prototype.hasOwnProperty.call(safePayload, 'message')
+  };
+  let messageEntity = null;
+  if (!normalizedPayload.hasMessageOverride && !(Array.isArray(normalizedPayload.lines) && normalizedPayload.lines.length > 0)) {
+    messageEntity = await resolveMessageEntityValue(config, selectedProfile);
+  }
+  const effectivePayload = messageEntity
+    ? { ...normalizedPayload, hasMessageOverride: true, message: messageEntity.value }
+    : normalizedPayload;
+  const templateData = buildMessageTemplateData(effectivePayload, selectedProfile);
 
   const imagePath = await renderTemplateToPng(config, templateData, {
     templateType: 'message',
@@ -1383,6 +1440,7 @@ async function previewMessage(config, deps, payload) {
   return {
     imagePath,
     templateData,
+    messageEntity: messageEntity ? messageEntity.entityId : '',
     profile: selectedProfile
       ? {
         id: selectedProfile.id,
@@ -1468,7 +1526,18 @@ async function previewDailyAgenda(config, deps, payload) {
 }
 
 async function runPrintJob(config, deps, job) {
-  const printerConfig = resolvePrinter(config, job && job.payload && job.payload.printerId);
+  const payload = job && job.payload && typeof job.payload === 'object' ? job.payload : {};
+  let printerId = asString(payload.printerId, '');
+  const profileStore = deps && deps.profileStore ? deps.profileStore : null;
+  if (!printerId && profileStore && (job.type === 'daily_agenda' || job.type === 'message')) {
+    const profile = payload.profileId
+      ? profileStore.getProfileById(payload.profileId)
+      : (job.type === 'daily_agenda'
+        ? profileStore.getDefaultDailyAgendaProfile()
+        : profileStore.getDefaultMessageProfile());
+    printerId = asString(profile && profile.printerId, '');
+  }
+  const printerConfig = resolvePrinter(config, printerId);
 
   switch (job.type) {
     case 'text':
@@ -1489,6 +1558,7 @@ async function runPrintJob(config, deps, job) {
 function startServer() {
   const config = loadConfig();
   const serviceMeta = readPackageMetadata();
+  const printerStore = createPrinterStore(config);
   const profileStore = createProfileStore(config);
   const deps = {
     profileStore
@@ -1505,6 +1575,7 @@ function startServer() {
     queue,
     serviceMeta,
     profileStore,
+    printerStore,
     listEntities: (options) => listHomeAssistantEntities(config, options),
     previewMessage: (payload) => previewMessage(config, deps, payload),
     previewDailyAgenda: (payload) => previewDailyAgenda(config, deps, payload),
@@ -1530,7 +1601,9 @@ function startServer() {
   return {
     server,
     queue,
-    config
+    config,
+    printerStore,
+    profileStore
   };
 }
 

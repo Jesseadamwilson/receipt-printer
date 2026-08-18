@@ -5,7 +5,7 @@ This project has two cooperating parts:
 - A Home Assistant add-on that renders receipts, queues jobs, and sends bytes to one or more network printers.
 - A custom Home Assistant integration that provides native config-flow entity selectors, printer devices, diagnostic endpoint sensors, and pressable job buttons.
 
-Current package/add-on version: `1.0.1`.
+Current package/add-on version: `1.1.0`.
 
 ## Architecture
 
@@ -13,7 +13,7 @@ Current package/add-on version: `1.0.1`.
 2. Image print from PNG over TCP socket
 3. HTML/CSS -> PNG (Playwright) -> print
 4. Local API + single-worker queue + retries
-5. Ingress UI for daily/message setup + template CSS + preview/print actions
+5. Ingress dashboard for persistent printer management, structured jobs, entity search, template preview, and print actions
 
 ## Setup
 
@@ -22,7 +22,7 @@ Current package/add-on version: `1.0.1`.
 3. Install project packages with npm: `npm install`
 4. Run checks: `npm run check`
 
-Local profile storage default is `output/profiles.json` unless `PROFILE_STORE_PATH` is set.
+Local profile storage defaults to `output/profiles.json`; dashboard-managed printers are stored beside it in `output/printers.json`. In the add-on these files live under `/config/receipt-printer`, so they survive app restarts and upgrades.
 
 ## Commands
 
@@ -203,11 +203,14 @@ The first structured entry above contains the recommended Star mC-Print3 setting
 Job/profile editor:
 
 - Open add-on ingress and go to `/ui`.
-- Select a configured print target.
-- `Daily Agenda`: add/remove data-source rows, set entity ID and optional label, and reorder sections.
-- `Message`: headline + freeform textarea (emoji-safe because `/print/message` renders an image first).
-- `Template CSS + Preview`: edit CSS, preview daily/message as PNG, and print daily/message directly from ingress.
+- Add, edit, remove, and choose the default printer. **Save changes** persists the printer list immediately; no Home Assistant restart is required.
+- Assign an independent printer and optional pre-run Home Assistant script to `Daily Agenda` and `Send Message`.
+- `Daily Agenda`: configure structured Weather, Health Connect Sleep, Calendar, Battery, Alert, and Notes sources with searchable entity pickers.
+- `Send Message`: select a Home Assistant text/sensor entity or use saved freeform text.
+- Preview or run either job directly. Advanced receipt CSS remains available in a collapsed editor.
 - Ingress UI mirrors Home Assistant theme variables and follows dark/light mode from HA.
+
+The add-on Ingress page is an isolated web app, so its searchable entity fields are backed by the Home Assistant states API and styled to match HA. The separately installed custom integration uses Home Assistant's literal native `EntitySelector` controls and exposes pressable job button entities.
 
 If agenda prints only subtitle/no content:
 

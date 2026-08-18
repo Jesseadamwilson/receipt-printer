@@ -54,6 +54,32 @@ def _profile_options(jobs: list[dict[str, Any]], job_type: str) -> list[dict[str
     ]
 
 
+def _job_by_id(jobs: list[dict[str, Any]], profile_id: Any) -> dict[str, Any]:
+    """Return one add-on job by profile ID."""
+    return next(
+        (job for job in jobs if str(job.get("id") or "") == str(profile_id or "")),
+        {},
+    )
+
+
+def _job_sources(job: dict[str, Any], source_type: str, multiple: bool = False) -> Any:
+    """Read enabled entity assignments from add-on job metadata."""
+    values = [
+        str(item.get("entity") or "")
+        for item in job.get("dataSources", [])
+        if isinstance(item, dict)
+        and item.get("type") == source_type
+        and item.get("enabled", True)
+        and item.get("entity")
+    ]
+    return values if multiple else (values[0] if values else "")
+
+
+def _option_or_job(options: dict[str, Any], key: str, job_value: Any) -> Any:
+    """Keep explicit integration options, otherwise mirror the add-on job."""
+    return options[key] if key in options else job_value
+
+
 def _suggested_optional(key: str, value: Any) -> vol.Optional:
     description = {"suggested_value": value} if value not in (None, "", []) else None
     return vol.Optional(key, description=description)
@@ -194,29 +220,57 @@ class ReceiptPrinterOptionsFlow(OptionsFlow):
                 )
             )
 
+        agenda_job = _job_by_id(
+            self._jobs,
+            current.get(
+                CONF_DAILY_AGENDA_PROFILE,
+                agenda_profiles[0]["value"] if agenda_profiles else "",
+            ),
+        )
+
         schema.update(
             {
                 _suggested_optional(
                     CONF_DAILY_AGENDA_SCRIPT,
-                    current.get(CONF_DAILY_AGENDA_SCRIPT),
+                    _option_or_job(
+                        current,
+                        CONF_DAILY_AGENDA_SCRIPT,
+                        agenda_job.get("scriptEntity", ""),
+                    ),
                 ): EntitySelector(EntitySelectorConfig(domain="script")),
                 _suggested_optional(
                     CONF_AGENDA_WEATHER_ENTITY,
-                    current.get(CONF_AGENDA_WEATHER_ENTITY),
+                    _option_or_job(
+                        current,
+                        CONF_AGENDA_WEATHER_ENTITY,
+                        _job_sources(agenda_job, "weather"),
+                    ),
                 ): EntitySelector(EntitySelectorConfig(domain="weather")),
                 _suggested_optional(
                     CONF_AGENDA_SLEEP_ENTITY,
-                    current.get(CONF_AGENDA_SLEEP_ENTITY),
+                    _option_or_job(
+                        current,
+                        CONF_AGENDA_SLEEP_ENTITY,
+                        _job_sources(agenda_job, "sleep"),
+                    ),
                 ): EntitySelector(EntitySelectorConfig(domain="sensor")),
                 _suggested_optional(
                     CONF_AGENDA_CALENDAR_ENTITIES,
-                    current.get(CONF_AGENDA_CALENDAR_ENTITIES, []),
+                    _option_or_job(
+                        current,
+                        CONF_AGENDA_CALENDAR_ENTITIES,
+                        _job_sources(agenda_job, "calendar", multiple=True),
+                    ),
                 ): EntitySelector(
                     EntitySelectorConfig(domain="calendar", multiple=True)
                 ),
                 _suggested_optional(
                     CONF_AGENDA_BATTERY_ENTITIES,
-                    current.get(CONF_AGENDA_BATTERY_ENTITIES, []),
+                    _option_or_job(
+                        current,
+                        CONF_AGENDA_BATTERY_ENTITIES,
+                        _job_sources(agenda_job, "battery", multiple=True),
+                    ),
                 ): EntitySelector(
                     EntitySelectorConfig(
                         domain=["sensor", "binary_sensor"], multiple=True
@@ -224,7 +278,11 @@ class ReceiptPrinterOptionsFlow(OptionsFlow):
                 ),
                 _suggested_optional(
                     CONF_AGENDA_ALERT_ENTITIES,
-                    current.get(CONF_AGENDA_ALERT_ENTITIES, []),
+                    _option_or_job(
+                        current,
+                        CONF_AGENDA_ALERT_ENTITIES,
+                        _job_sources(agenda_job, "alert", multiple=True),
+                    ),
                 ): EntitySelector(
                     EntitySelectorConfig(
                         domain=["alert", "binary_sensor"], multiple=True
@@ -232,7 +290,11 @@ class ReceiptPrinterOptionsFlow(OptionsFlow):
                 ),
                 _suggested_optional(
                     CONF_AGENDA_NOTES_ENTITY,
-                    current.get(CONF_AGENDA_NOTES_ENTITY),
+                    _option_or_job(
+                        current,
+                        CONF_AGENDA_NOTES_ENTITY,
+                        _job_sources(agenda_job, "notes"),
+                    ),
                 ): EntitySelector(
                     EntitySelectorConfig(domain=["input_text", "text", "sensor"])
                 ),
@@ -256,17 +318,33 @@ class ReceiptPrinterOptionsFlow(OptionsFlow):
                 )
             )
 
+        message_job = _job_by_id(
+            self._jobs,
+            current.get(
+                CONF_MESSAGE_PROFILE,
+                message_profiles[0]["value"] if message_profiles else "",
+            ),
+        )
+
         schema.update(
             {
                 _suggested_optional(
                     CONF_MESSAGE_ENTITY,
-                    current.get(CONF_MESSAGE_ENTITY),
+                    _option_or_job(
+                        current,
+                        CONF_MESSAGE_ENTITY,
+                        message_job.get("messageEntity", ""),
+                    ),
                 ): EntitySelector(
                     EntitySelectorConfig(domain=["input_text", "text", "sensor"])
                 ),
                 _suggested_optional(
                     CONF_MESSAGE_SCRIPT,
-                    current.get(CONF_MESSAGE_SCRIPT),
+                    _option_or_job(
+                        current,
+                        CONF_MESSAGE_SCRIPT,
+                        message_job.get("scriptEntity", ""),
+                    ),
                 ): EntitySelector(EntitySelectorConfig(domain="script")),
             }
         )

@@ -366,6 +366,7 @@ function createReceiptServer(options) {
     queue,
     serviceMeta,
     profileStore,
+    printerStore,
     listEntities,
     previewMessage,
     previewDailyAgenda,
@@ -379,6 +380,10 @@ function createReceiptServer(options) {
 
   if (!profileStore || typeof profileStore.get !== 'function' || typeof profileStore.save !== 'function') {
     throw new Error('createReceiptServer requires a profileStore with get()/save()');
+  }
+
+  if (!printerStore || typeof printerStore.get !== 'function' || typeof printerStore.save !== 'function') {
+    throw new Error('createReceiptServer requires a printerStore with get()/save()');
   }
 
   if (typeof listEntities !== 'function') {
@@ -449,6 +454,9 @@ function createReceiptServer(options) {
             name: profile.name,
             type: profile.template,
             enabled: profile.enabled !== false,
+            printerId: profile.printerId || config.defaultPrinterId,
+            scriptEntity: profile.scriptEntity || '',
+            messageEntity: profile.messageEntity || '',
             dataSources: Array.isArray(profile.items) ? profile.items : []
           }));
         jsonResponse(res, 200, { ok: true, jobs });
@@ -456,10 +464,20 @@ function createReceiptServer(options) {
       }
 
       if (req.method === 'GET' && pathname === '/api/printers') {
+        const printers = printerStore.get();
         jsonResponse(res, 200, {
           ok: true,
-          defaultPrinterId: config.defaultPrinterId,
-          printers: Array.isArray(config.printers) ? config.printers : []
+          ...printers
+        });
+        return;
+      }
+
+      if (req.method === 'PUT' && pathname === '/api/printers') {
+        const body = await parseJsonBody(req);
+        const saved = printerStore.save(body);
+        jsonResponse(res, 200, {
+          ok: true,
+          ...saved
         });
         return;
       }
@@ -529,6 +547,7 @@ function createReceiptServer(options) {
 
       if (req.method === 'GET' && pathname === '/health') {
         const profiles = profileStore.get();
+        const printerSettings = printerStore.get();
         const cssResult = readTemplateCss();
 
         jsonResponse(res, 200, {
@@ -548,8 +567,9 @@ function createReceiptServer(options) {
             paperWidth: config.paperWidth
           },
           printers: {
-            defaultPrinterId: config.defaultPrinterId,
-            items: Array.isArray(config.printers) ? config.printers : []
+            storePath: printerStore.getStorePath(),
+            defaultPrinterId: printerSettings.defaultPrinterId,
+            items: printerSettings.printers
           },
           templates: {
             receiptCandidates: config.templatePaths || [config.templatePath],

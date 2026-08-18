@@ -32,6 +32,8 @@ function createTestServer(capturedJobs) {
         name: 'Daily Agenda',
         template: 'daily_agenda',
         enabled: true,
+        printerId: 'kitchen',
+        scriptEntity: 'script.prepare_agenda',
         items: []
       },
       {
@@ -39,6 +41,8 @@ function createTestServer(capturedJobs) {
         name: 'Message',
         template: 'message',
         enabled: true,
+        printerId: 'kitchen',
+        messageEntity: 'input_text.receipt_message',
         items: []
       }
     ]
@@ -68,6 +72,23 @@ function createTestServer(capturedJobs) {
       },
       getStorePath() {
         return '/tmp/profiles.json';
+      }
+    },
+    printerStore: {
+      get() {
+        return {
+          version: 1,
+          defaultPrinterId: config.defaultPrinterId,
+          printers: config.printers
+        };
+      },
+      save(nextStore) {
+        config.printers = nextStore.printers;
+        config.defaultPrinterId = nextStore.defaultPrinterId;
+        return this.get();
+      },
+      getStorePath() {
+        return '/tmp/printers.json';
       }
     },
     async listEntities() {
@@ -102,6 +123,24 @@ test('printer and job metadata are exposed and print jobs retain printer ID', as
 
   const jobs = await (await fetch(`${baseUrl}/api/jobs`)).json();
   assert.deepEqual(jobs.jobs.map((job) => job.type), ['daily_agenda', 'message']);
+  assert.equal(jobs.jobs[0].scriptEntity, 'script.prepare_agenda');
+  assert.equal(jobs.jobs[1].messageEntity, 'input_text.receipt_message');
+
+  const savePrintersResponse = await fetch(`${baseUrl}/api/printers`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      defaultPrinterId: 'office',
+      printers: [
+        { id: 'kitchen', name: 'Kitchen', host: '10.0.0.10', port: 9100 },
+        { id: 'office', name: 'Office', host: '10.0.0.20', port: 9100 }
+      ]
+    })
+  });
+  assert.equal(savePrintersResponse.status, 200);
+  const savedPrinters = await savePrintersResponse.json();
+  assert.equal(savedPrinters.defaultPrinterId, 'office');
+  assert.equal(savedPrinters.printers[1].host, '10.0.0.20');
 
   const printResponse = await fetch(`${baseUrl}/print/text`, {
     method: 'POST',

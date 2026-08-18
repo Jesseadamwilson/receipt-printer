@@ -106,6 +106,11 @@ function sanitizeProfile(rawProfile, fallbackTemplate = 'daily_agenda') {
     name: asString(source.name, nameFallbackByTemplate[template]),
     template,
     enabled: asBoolean(source.enabled, true),
+    printerId: asString(source.printerId || source.printer_id, ''),
+    scriptEntity: asString(source.scriptEntity || source.script_entity, ''),
+    messageEntity: template === 'message'
+      ? asString(source.messageEntity || source.message_entity, '')
+      : '',
     items,
     messageBody: asRawString(source.messageBody, ''),
     ganttDayStartTime: rawGanttDayStartTime,
@@ -157,6 +162,8 @@ function buildDefaultProfiles(config) {
         name: 'Daily Agenda',
         template: 'daily_agenda',
         enabled: true,
+        printerId: asString(config.defaultPrinterId, ''),
+        scriptEntity: '',
         items: buildDefaultDailyAgendaItems(config),
         ganttDayStartTime: '06:00',
         ganttDayEndTime: '00:00'
@@ -166,6 +173,9 @@ function buildDefaultProfiles(config) {
         name: 'Message',
         template: 'message',
         enabled: true,
+        printerId: asString(config.defaultPrinterId, ''),
+        scriptEntity: '',
+        messageEntity: '',
         items: [],
         messageBody: ''
       }
@@ -178,7 +188,13 @@ function sanitizeStore(rawStore, config) {
   const rawProfiles = Array.isArray(source.profiles) ? source.profiles : [];
 
   const profiles = rawProfiles
-    .map((profile) => sanitizeProfile(profile))
+    .map((profile) => {
+      const sanitized = sanitizeProfile(profile);
+      if (!sanitized.printerId) {
+        sanitized.printerId = asString(config.defaultPrinterId, '');
+      }
+      return sanitized;
+    })
     .filter((profile) => profile.id);
 
   if (profiles.length === 0) {

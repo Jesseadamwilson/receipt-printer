@@ -105,6 +105,20 @@ class ReceiptPrinterJobButton(ReceiptPrinterEntity, ButtonEntity):
         )
 
     async def _async_run_assigned_script(self) -> None:
+        selected_job = next(
+            (
+                job
+                for job in self._jobs
+                if str(job.get("id") or "") == self.profile_id
+                and job.get("type") == self._job_type
+            ),
+            None,
+        )
+        # A script saved on the add-on job is executed by the add-on. Avoid
+        # invoking a second integration-level script for the same button press.
+        if selected_job and selected_job.get("scriptEntity"):
+            return
+
         option_key = (
             CONF_DAILY_AGENDA_SCRIPT
             if self._job_type == JOB_DAILY_AGENDA
@@ -131,7 +145,7 @@ class ReceiptPrinterJobButton(ReceiptPrinterEntity, ButtonEntity):
         source_config = {
             api_key: options[option_key]
             for option_key, api_key in source_keys.items()
-            if option_key in options
+            if options.get(option_key) not in (None, "", [])
         }
         data: dict[str, Any] = {
             "source": "auto",

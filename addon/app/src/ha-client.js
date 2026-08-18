@@ -182,6 +182,10 @@ function typeMatches(entity, type) {
       return domain === 'alert' || domain === 'binary_sensor' || id.includes('alert');
     case 'notes':
       return domain === 'input_text' || domain === 'text' || id.includes('note');
+    case 'message':
+      return domain === 'input_text' || domain === 'text' || domain === 'sensor';
+    case 'script':
+      return domain === 'script';
     default:
       return true;
   }

@@ -3,96 +3,104 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Receipt Printer Settings</title>
+  <title>Receipt Printer</title>
   <link rel="stylesheet" href="settings.css">
 </head>
 <body>
   <main class="page">
-    <section class="ha-card page-card">
-      <header class="page-header">
-        <div>
-          <h1>Receipt Printer</h1>
-          <p class="secondary">Daily agenda + message settings with template preview.</p>
-        </div>
-        <div class="header-actions">
-          <button id="reload-btn" class="btn">Reload</button>
-          <button id="save-btn" class="btn btn-primary">Save All</button>
-        </div>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Home Assistant app</p>
+        <h1>Receipt Printer</h1>
+        <p class="secondary">Manage print destinations, connect Home Assistant data, and run jobs.</p>
+      </div>
+      <div class="header-actions">
+        <button id="reload-btn" class="btn">Reload</button>
+        <button id="save-btn" class="btn btn-primary" disabled>Save changes</button>
+      </div>
+    </header>
+
+    <section class="summary-grid" aria-label="Configuration summary">
+      <article class="summary-card"><span class="summary-icon" aria-hidden="true">▤</span><div><strong id="printer-count">0</strong><span>Printers</span></div></article>
+      <article class="summary-card"><span class="summary-icon" aria-hidden="true">▶</span><div><strong id="job-count">2</strong><span>Print jobs</span></div></article>
+      <article class="summary-card summary-wide"><span class="status-dot" id="connection-dot" aria-hidden="true"></span><div><strong id="connection-title">Connecting</strong><span id="connection-detail">Loading Home Assistant data</span></div></article>
+    </section>
+
+    <section class="section-block" aria-labelledby="printers-heading">
+      <header class="section-header">
+        <div><p class="eyebrow">Destinations</p><h2 id="printers-heading">Printers</h2><p class="secondary">Each printer is saved persistently and can be assigned to a job.</p></div>
+        <button id="add-printer-btn" class="btn">＋ Add printer</button>
+      </header>
+      <div id="printer-list" class="printer-grid"></div>
+      <p class="integration-note">Using the optional native integration? Reload its config entry after adding or removing printers to refresh Home Assistant devices and button entities. A full Home Assistant restart is not required.</p>
+    </section>
+
+    <section class="section-block" aria-labelledby="jobs-heading">
+      <header class="section-header">
+        <div><p class="eyebrow">Automations</p><h2 id="jobs-heading">Print jobs</h2><p class="secondary">Choose a printer, optionally run a Home Assistant script, and connect entities as data sources.</p></div>
       </header>
 
-      <section class="layout">
-        <section class="ha-card card card-full printer-target-card">
-          <label class="field field-compact">
-            <span>Print target</span>
-            <select id="printer-select"></select>
-          </label>
-          <p class="secondary">Printers are configured in the add-on's structured <code>printers</code> option.</p>
-        </section>
+      <div id="job-list" class="job-list">
+        <article class="job-card" data-job-template="daily_agenda">
+          <header class="job-header">
+            <div class="job-identity"><span class="job-icon" aria-hidden="true">☀</span><div><p class="eyebrow">Structured job</p><input id="daily-name" class="title-input" data-profile-field="name" data-profile-template="daily_agenda" aria-label="Daily Agenda job name"><p id="daily-summary" class="secondary job-summary"></p></div></div>
+            <label class="switch-field"><input id="daily-enabled" type="checkbox" data-profile-field="enabled" data-profile-template="daily_agenda"><span>Enabled</span></label>
+          </header>
 
-        <section class="ha-card card">
-          <header class="card-header">
-            <div>
-              <h2>Daily Agenda</h2>
-              <p class="secondary">Use entity IDs and reorder sections with arrows.</p>
+          <div class="job-routing">
+            <label class="field"><span>Target printer</span><select id="daily-printer" data-profile-field="printerId" data-profile-template="daily_agenda"></select></label>
+            <label class="field entity-field"><span>Script to run first <small>Optional</small></span><input id="daily-script" type="text" role="combobox" autocomplete="off" data-entity-type="script" data-profile-field="scriptEntity" data-profile-template="daily_agenda" list="daily-script-options" placeholder="Search scripts…"><datalist id="daily-script-options"></datalist></label>
+            <div class="job-actions"><button class="btn" data-action="preview-daily">Preview</button><button class="btn btn-primary" data-action="run-daily">Run job</button></div>
+          </div>
+
+          <details class="job-details" open>
+            <summary>Data sources <span id="daily-source-count" class="count-pill">0</span></summary>
+            <div class="details-content">
+              <div class="time-window">
+                <label class="field"><span>Timeline begins</span><input id="gantt-day-start-time" type="time" step="60" data-profile-field="ganttDayStartTime" data-profile-template="daily_agenda"></label>
+                <label class="field"><span>Timeline ends</span><input id="gantt-day-end-time" type="time" step="60" data-profile-field="ganttDayEndTime" data-profile-template="daily_agenda"></label>
+              </div>
+              <div id="source-groups" class="source-groups"></div>
             </div>
-            <button id="add-item-btn" class="btn">Add Row</button>
-          </header>
-          <section class="daily-time-window">
-            <label class="field field-compact">
-              <span>Gantt Day Start</span>
-              <input id="gantt-day-start-time" type="time" step="60">
-            </label>
-            <label class="field field-compact">
-              <span>Gantt Day End</span>
-              <input id="gantt-day-end-time" type="time" step="60">
-            </label>
-          </section>
-          <div id="item-list" class="item-list"></div>
-        </section>
+          </details>
+        </article>
 
-        <section class="ha-card card">
-          <header class="card-header">
-            <h2>Message Template</h2>
+        <article class="job-card" data-job-template="message">
+          <header class="job-header">
+            <div class="job-identity"><span class="job-icon" aria-hidden="true">✉</span><div><p class="eyebrow">Message job</p><input id="message-name" class="title-input" data-profile-field="name" data-profile-template="message" aria-label="Send Message job name"><p id="message-summary" class="secondary job-summary"></p></div></div>
+            <label class="switch-field"><input id="message-enabled" type="checkbox" data-profile-field="enabled" data-profile-template="message"><span>Enabled</span></label>
           </header>
 
-          <label class="field">
-            <span>Message Headline</span>
-            <input id="message-headline" type="text" placeholder="Message">
-          </label>
-
-          <label class="field">
-            <span>Message Body (emoji supported)</span>
-            <textarea id="message-body" rows="10" placeholder="Type the message to print..."></textarea>
-          </label>
-        </section>
-
-        <section class="ha-card card card-full">
-          <header class="card-header">
-            <h2>Template CSS + Preview</h2>
-          </header>
-
-          <label class="field">
-            <span>Custom CSS (applies to receipt template rendering)</span>
-            <textarea id="custom-css" rows="12" placeholder="/* custom receipt css */"></textarea>
-          </label>
-
-          <div class="preview-actions">
-            <button id="preview-daily-btn" class="btn">Preview Daily Agenda</button>
-            <button id="print-daily-btn" class="btn">Print Daily Agenda</button>
-            <button id="preview-message-btn" class="btn">Preview Message</button>
-            <button id="print-message-btn" class="btn">Print Message</button>
+          <div class="job-routing">
+            <label class="field"><span>Target printer</span><select id="message-printer" data-profile-field="printerId" data-profile-template="message"></select></label>
+            <label class="field entity-field"><span>Script to run first <small>Optional</small></span><input id="message-script" type="text" role="combobox" autocomplete="off" data-entity-type="script" data-profile-field="scriptEntity" data-profile-template="message" list="message-script-options" placeholder="Search scripts…"><datalist id="message-script-options"></datalist></label>
+            <div class="job-actions"><button class="btn" data-action="preview-message">Preview</button><button class="btn btn-primary" data-action="run-message">Run job</button></div>
           </div>
 
-          <div class="preview-frame">
-            <img id="preview-image" alt="Template preview" hidden>
-            <p id="preview-empty" class="secondary">No preview generated yet.</p>
-          </div>
-        </section>
-      </section>
+          <details class="job-details" open>
+            <summary>Message content</summary>
+            <div class="details-content message-fields">
+              <label class="field entity-field field-wide"><span>Message entity <small>Optional; input_text, text, or sensor</small></span><input id="message-entity" type="text" role="combobox" autocomplete="off" data-entity-type="message" data-profile-field="messageEntity" data-profile-template="message" list="message-entity-options" placeholder="Search Home Assistant entities…"><datalist id="message-entity-options"></datalist></label>
+              <div class="field-divider"><span>or use saved text</span></div>
+              <label class="field field-wide"><span>Message body</span><textarea id="message-body" rows="6" data-profile-field="messageBody" data-profile-template="message" placeholder="Type the message to print…"></textarea></label>
+            </div>
+          </details>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block advanced-block" aria-labelledby="advanced-heading">
+      <details>
+        <summary id="advanced-heading">Advanced template styling</summary>
+        <div class="details-content">
+          <label class="field"><span>Custom receipt CSS</span><textarea id="custom-css" rows="12" placeholder="/* custom receipt css */"></textarea></label>
+          <div class="preview-frame"><img id="preview-image" alt="Receipt preview" hidden><p id="preview-empty" class="secondary">Run a preview from either job to inspect its receipt.</p></div>
+        </div>
+      </details>
     </section>
   </main>
 
-  <div id="status-bar" class="status-bar" data-kind="info">Loading settings...</div>
+  <div id="status-bar" class="status-bar" data-kind="info" role="status">Loading settings…</div>
   <script src="settings.js"></script>
 </body>
 </html>
