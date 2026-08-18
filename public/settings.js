@@ -49,6 +49,28 @@
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
   }
 
+  function formatClockLabel(value) {
+    const match = asString(value, '').match(/^(\d{2}):(\d{2})$/);
+    if (!match) return value;
+    const hours = Number.parseInt(match[1], 10);
+    const minutes = match[2];
+    const period = hours < 12 ? 'AM' : 'PM';
+    const displayHour = hours % 12 || 12;
+    return `${displayHour}:${minutes} ${period}`;
+  }
+
+  function timeOptions(selectedValue) {
+    const selected = asString(selectedValue, '');
+    const values = [];
+    for (let minutes = 0; minutes < 24 * 60; minutes += 15) {
+      const hour = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const minute = String(minutes % 60).padStart(2, '0');
+      values.push(`${hour}:${minute}`);
+    }
+    if (selected && !values.includes(selected)) values.push(selected);
+    return values.map((value) => `<option value="${escapeHtml(value)}"${value === selected ? ' selected' : ''}>${escapeHtml(formatClockLabel(value))}</option>`).join('');
+  }
+
   function normalizePrinterId(value) {
     return asString(value, '').toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '');
   }
@@ -206,8 +228,8 @@
     ui.dailyEnabled.checked = daily.enabled !== false;
     ui.dailyPrinter.innerHTML = printerOptions(daily.printerId);
     ui.dailyScript.value = daily.scriptEntity || '';
-    ui.ganttStart.value = daily.ganttDayStartTime || '';
-    ui.ganttEnd.value = daily.ganttDayEndTime || '';
+    ui.ganttStart.innerHTML = timeOptions(daily.ganttDayStartTime || '06:00');
+    ui.ganttEnd.innerHTML = timeOptions(daily.ganttDayEndTime || '00:00');
     const dailyPrinter = state.printers.find((printer) => printer.id === daily.printerId);
     const enabledSources = daily.items.filter((item) => item.enabled !== false && item.entity).length;
     ui.dailySummary.textContent = `${dailyPrinter ? dailyPrinter.name : 'No printer'} · ${enabledSources} data source${enabledSources === 1 ? '' : 's'}${daily.scriptEntity ? ` · ${daily.scriptEntity}` : ''}`;

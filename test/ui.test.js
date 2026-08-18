@@ -17,6 +17,8 @@ test('Ingress dashboard exposes persistent printers and structured job controls'
   assert.match(html, /data-job-template="message"/);
   assert.match(html, /data-entity-type="script"/);
   assert.match(html, /id="source-groups"/);
+  assert.match(html, /<select id="gantt-day-start-time"/);
+  assert.doesNotMatch(html, /type="time"/);
   assert.match(script, /fetchJson\('\/api\/printers', \{/);
   assert.match(script, /method: 'PUT'/);
   assert.match(script, /\/api\/entities\?type=/);
