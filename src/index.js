@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { loadConfig } = require('./config');
+const { loadConfig, resolvePrinter } = require('./config');
 const { PrintQueue } = require('./queue');
 const { createReceiptServer } = require('./server');
 const {
@@ -1050,93 +1050,15 @@ function readPackageMetadata() {
     const raw = fs.readFileSync(packagePath, 'utf8');
     const parsed = JSON.parse(raw);
     return {
-      name: parsed.name || 'ha-receipt-printer-spike',
+      name: parsed.name || 'ha-receipt-printer',
       version: parsed.version || '0.0.0'
     };
   } catch (_error) {
     return {
-      name: 'ha-receipt-printer-spike',
+      name: 'ha-receipt-printer',
       version: '0.0.0'
     };
   }
-}
-
-function resolveAgendaStatePath(config) {
-  const profileStorePath = asString(config && config.profileStorePath, '');
-  if (profileStorePath) {
-    return path.join(path.dirname(profileStorePath), 'agenda-state.json');
-  }
-
-  const outputDir = asString(config && config.outputDir, path.resolve(process.cwd(), 'output'));
-  return path.join(outputDir, 'agenda-state.json');
-}
-
-function readAgendaState(config) {
-  const agendaStatePath = resolveAgendaStatePath(config);
-  try {
-    const raw = fs.readFileSync(agendaStatePath, 'utf8');
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch (_error) {
-    return {};
-  }
-}
-
-function writeAgendaState(config, state) {
-  const agendaStatePath = resolveAgendaStatePath(config);
-  fs.mkdirSync(path.dirname(agendaStatePath), { recursive: true });
-  fs.writeFileSync(
-    agendaStatePath,
-    JSON.stringify(state && typeof state === 'object' ? state : {}, null, 2),
-    'utf8'
-  );
-}
-
-function applySleepStalePolicy(config, hydratedInput) {
-  const source = hydratedInput && typeof hydratedInput === 'object' ? hydratedInput : {};
-  const sleep = source.sleep && typeof source.sleep === 'object' ? { ...source.sleep } : null;
-  if (!sleep) {
-    return {
-      hydratedInput: source,
-      sleepRaw: '',
-      staleDetected: false,
-      previousSleepRaw: ''
-    };
-  }
-
-  const currentSleepRaw = asString(sleep.hours, '');
-  const agendaState = readAgendaState(config);
-  const previousSleepRaw = asString(agendaState.lastPrintedSleepRaw, '');
-  const staleDetected = Boolean(currentSleepRaw && previousSleepRaw && currentSleepRaw === previousSleepRaw);
-
-  if (staleDetected) {
-    sleep.notRecorded = true;
-    sleep.line = 'Not Recorded';
-  }
-
-  return {
-    hydratedInput: {
-      ...source,
-      sleep
-    },
-    sleepRaw: currentSleepRaw,
-    staleDetected,
-    previousSleepRaw
-  };
-}
-
-function persistLastPrintedSleepValue(config, sleepRaw) {
-  const value = asString(sleepRaw, '');
-  if (!value) {
-    return;
-  }
-
-  const agendaState = readAgendaState(config);
-  writeAgendaState(config, {
-    ...agendaState,
-    lastPrintedSleepRaw: value,
-    lastPrintedAt: new Date().toISOString()
-  });
 }
 
 function buildDefaultPrintOptions(config, inputPrint = {}) {
@@ -1154,7 +1076,6 @@ function summarizeAgendaInput(input) {
   return {
     weather: Boolean(source.weather),
     sleep: Boolean(source.sleep),
-    sleepStaleDetected: Boolean(source.sleep && source.sleep.notRecorded),
     events: Array.isArray(source.events) ? source.events.length : 0,
     batteries: Array.isArray(source.batteries) ? source.batteries.length : 0,
     alerts: Array.isArray(source.alerts) ? source.alerts.length : 0,
@@ -1398,17 +1319,21 @@ async function runDailyAgendaJob(config, deps, payload) {
   const profileSources = selectedProfile
     ? deriveAgendaSourceConfigFromProfile(selectedProfile, config)
     : null;
-  const effectiveConfig = profileSources
-    ? { ...config, ...profileSources }
-    : config;
+  const requestSources = payload && payload.sourceConfig && typeof payload.sourceConfig === 'object'
+    ? payload.sourceConfig
+    : null;
+  const effectiveConfig = {
+    ...config,
+    ...(profileSources || {}),
+    ...(requestSources || {})
+  };
 
   const rawInput = payload && payload.agendaInput && typeof payload.agendaInput === 'object'
     ? payload.agendaInput
     : {};
 
   const hydratedInput = await hydrateDailyAgendaFromHomeAssistant(effectiveConfig, rawInput);
-  const sleepPolicy = applySleepStalePolicy(effectiveConfig, hydratedInput);
-  const agendaInput = sleepPolicy.hydratedInput;
+  const agendaInput = hydratedInput;
   const templateData = buildDailyAgendaTemplateData(agendaInput, {
     includeDefaults: config.agendaIncludeDefaults,
     sectionOrder: effectiveConfig.agendaSectionOrder
@@ -1427,17 +1352,12 @@ async function runDailyAgendaJob(config, deps, payload) {
     print: payload.print
   });
 
-  persistLastPrintedSleepValue(effectiveConfig, sleepPolicy.sleepRaw);
-
   return {
     ...result,
     mode: 'daily_agenda',
     include: templateData.include,
     sectionOrder: templateData.sectionOrder,
-    sourceDataSummary: {
-      ...summarizeAgendaInput(agendaInput),
-      previousSleepRaw: sleepPolicy.previousSleepRaw
-    },
+    sourceDataSummary: summarizeAgendaInput(agendaInput),
     profile: selectedProfile
       ? {
         id: selectedProfile.id,
@@ -1486,9 +1406,14 @@ async function previewDailyAgenda(config, deps, payload) {
   const profileSources = selectedProfile
     ? deriveAgendaSourceConfigFromProfile(selectedProfile, config)
     : null;
-  const effectiveConfig = profileSources
-    ? { ...config, ...profileSources }
-    : config;
+  const requestSources = safePayload.sourceConfig && typeof safePayload.sourceConfig === 'object'
+    ? safePayload.sourceConfig
+    : null;
+  const effectiveConfig = {
+    ...config,
+    ...(profileSources || {}),
+    ...(requestSources || {})
+  };
 
   const hydratedInput = await hydrateDailyAgendaFromHomeAssistant(
     effectiveConfig,
@@ -1510,8 +1435,7 @@ async function previewDailyAgenda(config, deps, payload) {
       }
   );
 
-  const sleepPolicy = applySleepStalePolicy(effectiveConfig, hydratedInput);
-  const agendaInput = sleepPolicy.hydratedInput;
+  const agendaInput = hydratedInput;
   const templateData = buildDailyAgendaTemplateData(agendaInput, {
     includeDefaults: config.agendaIncludeDefaults,
     sectionOrder: effectiveConfig.agendaSectionOrder
@@ -1532,10 +1456,7 @@ async function previewDailyAgenda(config, deps, payload) {
   return {
     imagePath,
     templateData,
-    sourceDataSummary: {
-      ...summarizeAgendaInput(agendaInput),
-      previousSleepRaw: sleepPolicy.previousSleepRaw
-    },
+    sourceDataSummary: summarizeAgendaInput(agendaInput),
     profile: selectedProfile
       ? {
         id: selectedProfile.id,
@@ -1547,17 +1468,19 @@ async function previewDailyAgenda(config, deps, payload) {
 }
 
 async function runPrintJob(config, deps, job) {
+  const printerConfig = resolvePrinter(config, job && job.payload && job.payload.printerId);
+
   switch (job.type) {
     case 'text':
-      return runTextJob(config, job.payload);
+      return runTextJob(printerConfig, job.payload);
     case 'message':
-      return runMessageJob(config, deps, job.payload);
+      return runMessageJob(printerConfig, deps, job.payload);
     case 'image':
-      return runImageJob(config, job.payload);
+      return runImageJob(printerConfig, job.payload);
     case 'render':
-      return runRenderJob(config, job.payload);
+      return runRenderJob(printerConfig, job.payload);
     case 'daily_agenda':
-      return runDailyAgendaJob(config, deps, job.payload);
+      return runDailyAgendaJob(printerConfig, deps, job.payload);
     default:
       throw new Error(`Unsupported job type: ${job.type}`);
   }
@@ -1600,7 +1523,7 @@ function startServer() {
     // eslint-disable-next-line no-console
     console.log(
       `[receipt-printer] API listening on http://${config.apiHost}:${config.apiPort} ` +
-      `| printer=${config.printerHost}:${config.printerPort}`
+      `| printers=${config.printers.length} | default=${config.defaultPrinterId}`
     );
   });
 

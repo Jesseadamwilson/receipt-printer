@@ -167,8 +167,27 @@ function normalizeImagePath(rawImagePath, outputDir) {
   return path.isAbsolute(imagePath) ? imagePath : path.resolve(process.cwd(), imagePath);
 }
 
+function normalizePrinterId(body, config) {
+  const source = body && typeof body === 'object' ? body : {};
+  const printerId = asString(source.printerId || source.printer_id, '');
+  if (!printerId) {
+    return '';
+  }
+
+  const printers = Array.isArray(config.printers) ? config.printers : [];
+  if (!printers.some((printer) => printer && printer.id === printerId)) {
+    const error = new Error(`Unknown printer: ${printerId}`);
+    error.statusCode = 400;
+    error.retryable = false;
+    throw error;
+  }
+
+  return printerId;
+}
+
 function normalizeTextJob(body, config) {
   return {
+    printerId: normalizePrinterId(body, config),
     headline: asString(body.headline, 'HA Receipt Printer'),
     lines: normalizeLines(body.lines, body.message),
     footer: asString(body.footer, new Date().toLocaleString()),
@@ -183,6 +202,7 @@ function normalizeTextJob(body, config) {
 function normalizeMessageJob(body, config) {
   const payload = body && typeof body === 'object' ? body : {};
   return {
+    printerId: normalizePrinterId(payload, config),
     profileId: asString(payload.profileId, ''),
     headline: asString(payload.headline, ''),
     lines: Array.isArray(payload.lines)
@@ -208,6 +228,7 @@ function normalizeImageJob(body, config) {
   }
 
   return {
+    printerId: normalizePrinterId(body, config),
     imagePath,
     print: normalizePrintOptions(body.print, {
       feedLines: 3,
@@ -223,6 +244,7 @@ function normalizeRenderJob(body, config) {
     : body;
 
   return {
+    printerId: normalizePrinterId(body, config),
     templateType: asString(body.templateType || body.template || 'receipt', 'receipt'),
     templateData: {
       headline: asString(templateData.headline, 'HA Receipt Printer'),
@@ -246,7 +268,9 @@ function normalizeDailyAgendaJob(body, config) {
   const payload = body && typeof body === 'object' ? body : {};
 
   return {
+    printerId: normalizePrinterId(payload, config),
     profileId: asString(payload.profileId, ''),
+    sourceConfig: normalizeAgendaSourceConfig(payload.sourceConfig || payload.source_config),
     agendaInput: {
       title: asString(payload.title || payload.headline, 'Daily Agenda'),
       subtitle: asString(payload.subtitle, ''),
@@ -267,6 +291,59 @@ function normalizeDailyAgendaJob(body, config) {
       cutMode: config.printerCutMode
     })
   };
+}
+
+function normalizeEntityList(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((entry) => asString(entry, '')).filter(Boolean);
+}
+
+function normalizeAgendaSourceConfig(value) {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+  const source = value;
+  const output = {};
+  const hasOwn = (key) => Object.prototype.hasOwnProperty.call(source, key);
+
+  if (hasOwn('agendaWeatherEntity') || hasOwn('weather_entity')) {
+    output.agendaWeatherEntity = asString(
+      source.agendaWeatherEntity || source.weather_entity,
+      ''
+    );
+  }
+  if (hasOwn('agendaSleepEntity') || hasOwn('sleep_entity')) {
+    output.agendaSleepEntity = asString(
+      source.agendaSleepEntity || source.sleep_entity,
+      ''
+    );
+  }
+  if (hasOwn('agendaCalendarEntities') || hasOwn('calendar_entities')) {
+    output.agendaCalendarEntities = normalizeEntityList(
+      source.agendaCalendarEntities || source.calendar_entities
+    );
+  }
+  if (hasOwn('agendaBatteryEntities') || hasOwn('battery_entities')) {
+    output.agendaBatteryEntities = normalizeEntityList(
+      source.agendaBatteryEntities || source.battery_entities
+    );
+  }
+  if (hasOwn('agendaAlertEntities') || hasOwn('alert_entities')) {
+    output.agendaAlertEntities = normalizeEntityList(
+      source.agendaAlertEntities || source.alert_entities
+    );
+  }
+  if (hasOwn('agendaNotesEntity') || hasOwn('notes_entity')) {
+    output.agendaNotesEntity = asString(
+      source.agendaNotesEntity || source.notes_entity,
+      ''
+    );
+  }
+
+  return output;
 }
 
 function handleQueueError(error, res) {
@@ -363,6 +440,30 @@ function createReceiptServer(options) {
         return;
       }
 
+      if (req.method === 'GET' && pathname === '/api/jobs') {
+        const profiles = profileStore.get();
+        const jobs = (Array.isArray(profiles.profiles) ? profiles.profiles : [])
+          .filter((profile) => profile && profile.enabled !== false)
+          .map((profile) => ({
+            id: profile.id,
+            name: profile.name,
+            type: profile.template,
+            enabled: profile.enabled !== false,
+            dataSources: Array.isArray(profile.items) ? profile.items : []
+          }));
+        jsonResponse(res, 200, { ok: true, jobs });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/printers') {
+        jsonResponse(res, 200, {
+          ok: true,
+          defaultPrinterId: config.defaultPrinterId,
+          printers: Array.isArray(config.printers) ? config.printers : []
+        });
+        return;
+      }
+
       if ((req.method === 'PUT' || req.method === 'POST') && pathname === '/api/profiles') {
         const body = await parseJsonBody(req);
         const saved = profileStore.save(body);
@@ -445,6 +546,10 @@ function createReceiptServer(options) {
             model: config.printerModel,
             cutMode: config.printerCutMode,
             paperWidth: config.paperWidth
+          },
+          printers: {
+            defaultPrinterId: config.defaultPrinterId,
+            items: Array.isArray(config.printers) ? config.printers : []
           },
           templates: {
             receiptCandidates: config.templatePaths || [config.templatePath],

@@ -1,8 +1,8 @@
 {
-  "name": "Receipt Printer Spike",
-  "version": "0.9.5",
+  "name": "Receipt Printer",
+  "version": "1.0.0",
   "slug": "receipt_printer",
-  "description": "Template-rendered receipt printing API over raw TCP for Home Assistant",
+  "description": "Multi-printer template rendering and job API for Home Assistant",
   "url": "https://github.com/Jesseadamwilson/receipt-printer",
   "arch": ["aarch64", "amd64", "armv7", "armhf", "i386"],
   "startup": "services",
@@ -21,6 +21,8 @@
   },
   "map": ["config:rw"],
   "options": {
+    "printers": [],
+    "default_printer_id": "",
     "printer_host": "10.0.0.25",
     "printer_port": 9100,
     "printer_language": "star-prnt",
@@ -39,6 +41,19 @@
     "agenda_pre_refresh_delay_ms": 2500
   },
   "schema": {
+    "printers": [
+      {
+        "id": "str",
+        "name": "str",
+        "host": "str",
+        "port": "int(1,65535)",
+        "language": "list(star-prnt|esc-pos)",
+        "model": "str?",
+        "cut_mode": "list(full|partial|none)",
+        "paper_width": "int(256,1200)"
+      }
+    ],
+    "default_printer_id": "str?",
     "printer_host": "str",
     "printer_port": "int(1,65535)",
     "printer_language": "list(star-prnt|esc-pos)",

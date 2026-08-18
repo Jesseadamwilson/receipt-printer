@@ -271,6 +271,75 @@ function parsePercentish(value) {
   return raw;
 }
 
+function formatMinutesAsHours(minutes) {
+  const totalMinutes = Math.round(Number(minutes));
+  if (!Number.isFinite(totalMinutes) || totalMinutes < 0) {
+    return '';
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const remainder = totalMinutes % 60;
+  return `${hours}:${String(remainder).padStart(2, '0')}`;
+}
+
+function mapSleepStateToDuration(stateData, entityId = '') {
+  if (!stateData || typeof stateData !== 'object') {
+    return null;
+  }
+
+  const rawState = asString(stateData.state, '');
+  const normalizedState = normalizeStateValue(rawState);
+  if (!rawState || normalizedState === 'unknown' || normalizedState === 'unavailable') {
+    return null;
+  }
+
+  const attributes = stateData.attributes && typeof stateData.attributes === 'object'
+    ? stateData.attributes
+    : {};
+  const unit = asString(
+    attributes.unit_of_measurement || attributes.unit,
+    ''
+  ).toLowerCase();
+  const numericValue = Number(rawState.replace(',', '.'));
+  const normalizedEntityId = asString(entityId, '').toLowerCase();
+
+  if (Number.isFinite(numericValue) && numericValue >= 0) {
+    if (
+      ['min', 'mins', 'minute', 'minutes'].includes(unit) ||
+      (!unit && normalizedEntityId.includes('health_connect_sleep_duration'))
+    ) {
+      return {
+        hours: formatMinutesAsHours(numericValue),
+        minutes: Math.round(numericValue),
+        sourceUnit: unit || 'minutes'
+      };
+    }
+
+    if (['s', 'sec', 'secs', 'second', 'seconds'].includes(unit)) {
+      const minutes = numericValue / 60;
+      return {
+        hours: formatMinutesAsHours(minutes),
+        minutes: Math.round(minutes),
+        sourceUnit: unit
+      };
+    }
+
+    if (['ms', 'millisecond', 'milliseconds'].includes(unit)) {
+      const minutes = numericValue / 60000;
+      return {
+        hours: formatMinutesAsHours(minutes),
+        minutes: Math.round(minutes),
+        sourceUnit: unit
+      };
+    }
+  }
+
+  return {
+    hours: rawState,
+    sourceUnit: unit
+  };
+}
+
 function mapBatteryStateToLine(stateData, entityId) {
   if (!stateData || typeof stateData !== 'object') {
     return null;
@@ -422,9 +491,13 @@ async function hydrateDailyAgendaFromHomeAssistant(config, agendaInput = {}) {
   ) {
     const sleepState = await fetchState(config, config.agendaSleepEntity);
     if (sleepState) {
-      output.sleep = {
-        hours: asString(sleepState.state, '')
-      };
+      const sleepDuration = mapSleepStateToDuration(
+        sleepState,
+        config.agendaSleepEntity
+      );
+      if (sleepDuration) {
+        output.sleep = sleepDuration;
+      }
     }
   }
 
@@ -495,5 +568,6 @@ async function hydrateDailyAgendaFromHomeAssistant(config, agendaInput = {}) {
 }
 
 module.exports = {
-  hydrateDailyAgendaFromHomeAssistant
+  hydrateDailyAgendaFromHomeAssistant,
+  mapSleepStateToDuration
 };

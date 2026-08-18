@@ -11,6 +11,8 @@
     itemTypes: ['weather', 'sleep', 'calendar', 'battery', 'alert', 'notes'],
     dailyProfileId: '',
     messageProfileId: '',
+    printers: [],
+    selectedPrinterId: '',
     customCss: '',
     dirty: false,
     previewUrl: ''
@@ -472,6 +474,18 @@
     ui.messageBody.value = asRawString(messageProfile.messageBody, '');
   }
 
+  function renderPrinterSelect() {
+    const printers = Array.isArray(state.printers) ? state.printers : [];
+    ui.printerSelect.innerHTML = printers.map((printer) => {
+      const id = asString(printer.id, '');
+      const name = asString(printer.name, id || 'Receipt Printer');
+      const endpoint = `${asString(printer.host, '')}:${printer.port || ''}`;
+      const selected = id === state.selectedPrinterId ? ' selected' : '';
+      return `<option value="${escapeHtml(id)}"${selected}>${escapeHtml(`${name} — ${endpoint}`)}</option>`;
+    }).join('');
+    ui.printerSelect.disabled = printers.length <= 1;
+  }
+
   function renderDailySettings() {
     const dailyProfile = getDailyProfile();
     if (!dailyProfile) {
@@ -489,6 +503,7 @@
     renderDailyRows();
     renderDailySettings();
     renderMessageSection();
+    renderPrinterSelect();
     ui.customCss.value = asRawString(state.customCss, '');
     ui.saveBtn.disabled = !state.dirty;
   }
@@ -575,6 +590,7 @@
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        printerId: state.selectedPrinterId,
         profileId: dailyProfile.id,
         title: 'Daily Agenda',
         subtitle: 'Today',
@@ -607,6 +623,7 @@
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        printerId: state.selectedPrinterId,
         profileId: messageProfile.id,
         print: {
           feedLines: 3,
@@ -622,9 +639,10 @@
   async function loadSettings() {
     setStatus('Loading settings...', 'info');
 
-    const [profilesPayload, cssPayload] = await Promise.all([
+    const [profilesPayload, cssPayload, printersPayload] = await Promise.all([
       fetchJson(buildApiUrl('/api/profiles')),
-      fetchJson(buildApiUrl('/template/css'))
+      fetchJson(buildApiUrl('/template/css')),
+      fetchJson(buildApiUrl('/api/printers'))
     ]);
 
     state.itemTypes = Array.isArray(profilesPayload.itemTypes) && profilesPayload.itemTypes.length > 0
@@ -639,6 +657,11 @@
     };
 
     state.customCss = asRawString(cssPayload.css, '');
+    state.printers = Array.isArray(printersPayload.printers) ? printersPayload.printers : [];
+    const defaultPrinterId = asString(printersPayload.defaultPrinterId, '');
+    state.selectedPrinterId = state.printers.some((printer) => printer.id === state.selectedPrinterId)
+      ? state.selectedPrinterId
+      : (defaultPrinterId || (state.printers[0] && state.printers[0].id) || '');
     ensureSimpleProfiles();
     setDirty(false);
     renderAll();
@@ -796,6 +819,7 @@
     ui.ganttDayStartTime = document.getElementById('gantt-day-start-time');
     ui.ganttDayEndTime = document.getElementById('gantt-day-end-time');
     ui.messageHeadline = document.getElementById('message-headline');
+    ui.printerSelect = document.getElementById('printer-select');
     ui.messageBody = document.getElementById('message-body');
     ui.customCss = document.getElementById('custom-css');
     ui.previewDailyBtn = document.getElementById('preview-daily-btn');
@@ -830,6 +854,9 @@
     ui.itemList.addEventListener('click', onItemListClick);
 
     ui.messageHeadline.addEventListener('input', onMessageInput);
+    ui.printerSelect.addEventListener('change', () => {
+      state.selectedPrinterId = asString(ui.printerSelect.value, '');
+    });
     ui.messageBody.addEventListener('input', onMessageInput);
     ui.customCss.addEventListener('input', onCustomCssInput);
     ui.ganttDayStartTime.addEventListener('input', onDailySettingsInput);

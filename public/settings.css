@@ -102,6 +102,17 @@ h3 {
   grid-column: 1 / -1;
 }
 
+.printer-target-card {
+  display: grid;
+  grid-template-columns: minmax(260px, 520px) 1fr;
+  align-items: end;
+  gap: 12px;
+}
+
+.printer-target-card .secondary {
+  margin-bottom: 8px;
+}
+
 .card-header {
   display: flex;
   justify-content: space-between;

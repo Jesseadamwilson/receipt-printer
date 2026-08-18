@@ -3,6 +3,8 @@ set -euo pipefail
 
 export API_HOST="0.0.0.0"
 export API_PORT="8099"
+export PRINTERS_JSON="$(bashio::config 'printers')"
+export DEFAULT_PRINTER_ID="$(bashio::config 'default_printer_id')"
 export PRINTER_HOST="$(bashio::config 'printer_host')"
 export PRINTER_PORT="$(bashio::config 'printer_port')"
 export PRINTER_LANGUAGE="$(bashio::config 'printer_language')"
@@ -27,7 +29,8 @@ elif command -v chromium >/dev/null 2>&1; then
 fi
 
 bashio::log.info "Starting receipt printer API"
-bashio::log.info "API: ${API_HOST}:${API_PORT} | printer: ${PRINTER_HOST}:${PRINTER_PORT}"
+bashio::log.info "API: ${API_HOST}:${API_PORT} | configured printers: ${PRINTERS_JSON}"
+bashio::log.info "Legacy fallback printer: ${PRINTER_HOST}:${PRINTER_PORT}"
 bashio::log.info "Language: ${PRINTER_LANGUAGE} | model: ${PRINTER_MODEL} | cut: ${PRINTER_CUT_MODE}"
 bashio::log.info "Profile store: ${PROFILE_STORE_PATH}"
 bashio::log.info "Custom CSS path: ${CUSTOM_CSS_PATH}"

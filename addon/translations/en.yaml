@@ -1,0 +1,41 @@
+configuration:
+  printers:
+    name: Printers
+    description: Structured list of network receipt printers. When this list is empty, the legacy fallback printer fields are used.
+    fields:
+      id:
+        name: ID
+        description: Stable lowercase identifier used by jobs and Home Assistant entities.
+      name:
+        name: Name
+        description: Friendly name shown in Home Assistant.
+      host:
+        name: Host
+        description: Printer IP address or hostname.
+      port:
+        name: Port
+        description: Raw TCP print port, usually 9100.
+      language:
+        name: Command language
+      model:
+        name: Model
+      cut_mode:
+        name: Cut mode
+      paper_width:
+        name: Paper width
+        description: Render width in pixels.
+  default_printer_id:
+    name: Default printer ID
+    description: Printer used by older API calls that do not include printerId. The first printer is used when empty.
+  printer_host:
+    name: Legacy fallback host
+    description: Used only while the structured printers list is empty.
+  printer_port:
+    name: Legacy fallback port
+    description: Used only while the structured printers list is empty.
+  printer_language:
+    name: Legacy fallback language
+  printer_model:
+    name: Legacy fallback model
+  printer_cut_mode:
+    name: Legacy fallback cut mode

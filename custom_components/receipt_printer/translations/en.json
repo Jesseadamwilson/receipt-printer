@@ -1,0 +1,57 @@
+{
+  "title": "Receipt Printer",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the Receipt Printer add-on",
+        "description": "Enter the local URL exposed by the Receipt Printer add-on.",
+        "data": {
+          "api_url": "Add-on API URL",
+          "verify_ssl": "Verify SSL certificate"
+        },
+        "data_description": {
+          "api_url": "For the default mapped port, use http://homeassistant.local:8099.",
+          "verify_ssl": "Disable only when using a trusted local HTTPS endpoint with a self-signed certificate."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the Receipt Printer add-on API."
+    },
+    "abort": {
+      "already_configured": "This Receipt Printer API is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure print jobs",
+        "description": "Each enabled job becomes a button on every configured printer. An assigned script runs to completion immediately before the print job.",
+        "data": {
+          "daily_agenda_enabled": "Enable Daily Agenda job",
+          "daily_agenda_profile": "Daily Agenda profile",
+          "daily_agenda_script": "Daily Agenda pre-print script",
+          "agenda_weather_entity": "Weather entity",
+          "agenda_sleep_entity": "Sleep duration entity",
+          "agenda_calendar_entities": "Calendar entities",
+          "agenda_battery_entities": "Battery entities",
+          "agenda_alert_entities": "Alert entities",
+          "agenda_notes_entity": "Notes entity",
+          "message_enabled": "Enable Send Message job",
+          "message_profile": "Message profile",
+          "message_entity": "Message text entity",
+          "message_script": "Send Message pre-print script"
+        },
+        "data_description": {
+          "daily_agenda_script": "Optional Home Assistant script used to refresh or prepare data before printing.",
+          "agenda_sleep_entity": "Health Connect sleep duration is supported and converted from minutes automatically.",
+          "message_entity": "Optional input_text, text, or sensor whose current state replaces the saved message body.",
+          "message_script": "Optional Home Assistant script used to prepare the message before printing."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not refresh jobs from the Receipt Printer add-on API."
+    }
+  }
+}
