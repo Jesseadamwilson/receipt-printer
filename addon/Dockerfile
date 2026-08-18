@@ -1,5 +1,15 @@
-ARG BUILD_FROM
-FROM ${BUILD_FROM}
+FROM ghcr.io/home-assistant/base:latest
+
+ARG BUILD_VERSION
+ARG BUILD_ARCH
+
+LABEL \
+    io.hass.version="${BUILD_VERSION}" \
+    io.hass.type="app" \
+    io.hass.arch="${BUILD_ARCH}" \
+    org.opencontainers.image.title="Home Assistant App: Receipt Printer" \
+    org.opencontainers.image.description="Multi-printer template rendering and job API for Home Assistant" \
+    org.opencontainers.image.source="https://github.com/Jesseadamwilson/receipt-printer"
 
 ENV LANG=C.UTF-8
 ENV NODE_ENV=production

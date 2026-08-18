@@ -2,6 +2,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { resolvePrinter, sanitizePrinters } = require('../src/config');
 
 const legacyPrinter = {
@@ -61,4 +63,14 @@ test('printer selection rejects unknown explicit IDs', () => {
   assert.equal(selected.printerHost, '10.0.0.10');
   assert.equal(selected.printerId, 'kitchen');
   assert.throws(() => resolvePrinter(config, 'missing'), /Unknown printer: missing/);
+});
+
+test('add-on Dockerfile declares its base image explicitly', () => {
+  const dockerfile = fs.readFileSync(
+    path.resolve(__dirname, '..', 'addon', 'Dockerfile'),
+    'utf8'
+  );
+
+  assert.match(dockerfile, /^FROM ghcr\.io\/home-assistant\/base:/m);
+  assert.doesNotMatch(dockerfile, /ARG BUILD_FROM/);
 });

@@ -5,7 +5,7 @@ This project has two cooperating parts:
 - A Home Assistant add-on that renders receipts, queues jobs, and sends bytes to one or more network printers.
 - A custom Home Assistant integration that provides native config-flow entity selectors, printer devices, diagnostic endpoint sensors, and pressable job buttons.
 
-Current package/add-on version: `1.0.0`.
+Current package/add-on version: `1.0.1`.
 
 ## Architecture
 
