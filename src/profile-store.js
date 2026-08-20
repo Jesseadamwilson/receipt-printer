@@ -107,12 +107,20 @@ function sanitizeProfile(rawProfile, fallbackTemplate = 'daily_agenda') {
     template,
     enabled: asBoolean(source.enabled, true),
     printerId: asString(source.printerId || source.printer_id, ''),
-    scriptEntity: asString(source.scriptEntity || source.script_entity, ''),
-    messageEntity: template === 'message'
-      ? asString(source.messageEntity || source.message_entity, '')
-      : '',
     items,
+    messageHeader: template === 'message'
+      ? asRawString(source.messageHeader, 'MESSAGE')
+      : '',
+    messageSubject: template === 'message'
+      ? asRawString(source.messageSubject, '')
+      : '',
     messageBody: asRawString(source.messageBody, ''),
+    messageImagePath: template === 'message'
+      ? asString(source.messageImagePath, '')
+      : '',
+    messageImageName: template === 'message'
+      ? asString(source.messageImageName, '')
+      : '',
     ganttDayStartTime: rawGanttDayStartTime,
     ganttDayEndTime: rawGanttDayEndTime
   };
@@ -163,7 +171,6 @@ function buildDefaultProfiles(config) {
         template: 'daily_agenda',
         enabled: true,
         printerId: asString(config.defaultPrinterId, ''),
-        scriptEntity: '',
         items: buildDefaultDailyAgendaItems(config),
         ganttDayStartTime: '06:00',
         ganttDayEndTime: '00:00'
@@ -174,10 +181,12 @@ function buildDefaultProfiles(config) {
         template: 'message',
         enabled: true,
         printerId: asString(config.defaultPrinterId, ''),
-        scriptEntity: '',
-        messageEntity: '',
         items: [],
-        messageBody: ''
+        messageHeader: 'MESSAGE',
+        messageSubject: 'A Message For You',
+        messageBody: '',
+        messageImagePath: '',
+        messageImageName: ''
       }
     ]
   };

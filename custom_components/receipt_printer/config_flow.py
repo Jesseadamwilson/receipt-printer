@@ -33,11 +33,8 @@ from .const import (
     CONF_API_URL,
     CONF_DAILY_AGENDA_ENABLED,
     CONF_DAILY_AGENDA_PROFILE,
-    CONF_DAILY_AGENDA_SCRIPT,
     CONF_MESSAGE_ENABLED,
-    CONF_MESSAGE_ENTITY,
     CONF_MESSAGE_PROFILE,
-    CONF_MESSAGE_SCRIPT,
     CONF_VERIFY_SSL,
     DEFAULT_API_URL,
     DOMAIN,
@@ -155,12 +152,9 @@ class ReceiptPrinterOptionsFlow(OptionsFlow):
         if user_input is not None:
             normalized = dict(user_input)
             for key in (
-                CONF_DAILY_AGENDA_SCRIPT,
                 CONF_AGENDA_WEATHER_ENTITY,
                 CONF_AGENDA_SLEEP_ENTITY,
                 CONF_AGENDA_NOTES_ENTITY,
-                CONF_MESSAGE_ENTITY,
-                CONF_MESSAGE_SCRIPT,
             ):
                 normalized.setdefault(key, "")
             for key in (
@@ -230,14 +224,6 @@ class ReceiptPrinterOptionsFlow(OptionsFlow):
 
         schema.update(
             {
-                _suggested_optional(
-                    CONF_DAILY_AGENDA_SCRIPT,
-                    _option_or_job(
-                        current,
-                        CONF_DAILY_AGENDA_SCRIPT,
-                        agenda_job.get("scriptEntity", ""),
-                    ),
-                ): EntitySelector(EntitySelectorConfig(domain="script")),
                 _suggested_optional(
                     CONF_AGENDA_WEATHER_ENTITY,
                     _option_or_job(
@@ -317,37 +303,6 @@ class ReceiptPrinterOptionsFlow(OptionsFlow):
                     )
                 )
             )
-
-        message_job = _job_by_id(
-            self._jobs,
-            current.get(
-                CONF_MESSAGE_PROFILE,
-                message_profiles[0]["value"] if message_profiles else "",
-            ),
-        )
-
-        schema.update(
-            {
-                _suggested_optional(
-                    CONF_MESSAGE_ENTITY,
-                    _option_or_job(
-                        current,
-                        CONF_MESSAGE_ENTITY,
-                        message_job.get("messageEntity", ""),
-                    ),
-                ): EntitySelector(
-                    EntitySelectorConfig(domain=["input_text", "text", "sensor"])
-                ),
-                _suggested_optional(
-                    CONF_MESSAGE_SCRIPT,
-                    _option_or_job(
-                        current,
-                        CONF_MESSAGE_SCRIPT,
-                        message_job.get("scriptEntity", ""),
-                    ),
-                ): EntitySelector(EntitySelectorConfig(domain="script")),
-            }
-        )
 
         return self.async_show_form(
             step_id="init",

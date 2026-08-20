@@ -1,6 +1,6 @@
 {
   "name": "Receipt Printer",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "slug": "receipt_printer",
   "description": "Multi-printer template rendering and job API for Home Assistant",
   "url": "https://github.com/Jesseadamwilson/receipt-printer",

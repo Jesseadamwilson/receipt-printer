@@ -213,6 +213,7 @@ function sendToPrinter(config, payload) {
   return new Promise((resolve, reject) => {
     const socket = new net.Socket();
     let settled = false;
+    let writeStarted = false;
     let writeCompleted = false;
     const timeoutMs = Number(config.printTimeoutMs) || 15000;
 
@@ -243,11 +244,21 @@ function sendToPrinter(config, payload) {
 
     socket.setTimeout(timeoutMs);
 
-    socket.on('error', (error) => fail(error));
-    socket.on('timeout', () => {
-      if (writeCompleted) {
+    socket.on('error', (error) => {
+      if (writeStarted) {
         fail(new NonRetryableTransportError(
-          `Socket timeout after write completion (${timeoutMs}ms). ` +
+          `Printer connection failed after transmission started: ${error.message}. ` +
+          'Printer may have already received data.'
+        ));
+        return;
+      }
+
+      fail(error);
+    });
+    socket.on('timeout', () => {
+      if (writeStarted) {
+        fail(new NonRetryableTransportError(
+          `Socket timeout after transmission started (${timeoutMs}ms). ` +
           'Printer may have already received data.'
         ));
         return;
@@ -271,13 +282,24 @@ function sendToPrinter(config, payload) {
         return;
       }
 
+      if (writeStarted) {
+        fail(new NonRetryableTransportError(
+          'Socket closed after transmission started. Printer may have already received data.'
+        ));
+        return;
+      }
+
       fail(new Error('Socket closed before payload write completed'));
     });
 
     socket.connect(config.printerPort, config.printerHost, () => {
+      writeStarted = true;
       socket.write(payload, (error) => {
         if (error) {
-          fail(error);
+          fail(new NonRetryableTransportError(
+            `Printer write failed after transmission started: ${error.message}. ` +
+            'Printer may have already received data.'
+          ));
           return;
         }
 

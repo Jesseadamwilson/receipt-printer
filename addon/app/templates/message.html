@@ -25,8 +25,8 @@
       }
       .headline {
         margin: 0;
-        font-size: 34px;
-        letter-spacing: 0.6px;
+        font-size: 24px;
+        letter-spacing: 1.6px;
         text-transform: uppercase;
       }
       .meta {
@@ -35,6 +35,25 @@
       }
       .content {
         min-height: 180px;
+      }
+      .is-hidden {
+        display: none !important;
+      }
+      .message-image {
+        margin: 0 0 18px;
+        text-align: center;
+      }
+      .message-image img {
+        display: block;
+        max-width: 100%;
+        max-height: 620px;
+        margin: 0 auto;
+        object-fit: contain;
+      }
+      .message-subject {
+        margin: 0 0 16px;
+        font-size: 34px;
+        line-height: 1.12;
       }
       .message-lines .message-line {
         margin: 0 0 10px;
@@ -53,10 +72,14 @@
   <body>
     <section class="ticket ticket--message">
       <header class="header">
-        <h1 class="headline">{{headline}}</h1>
+        <h1 class="headline">{{message_header}}</h1>
         <p class="meta">{{day_of_week}}, {{date}} {{time}}</p>
       </header>
       <main class="content">
+        <figure class="message-image {{message_image_hidden_class}}">
+          <img src="{{message_image_src}}" alt="">
+        </figure>
+        <h2 class="message-subject {{message_subject_hidden_class}}">{{message_subject}}</h2>
         <section class="message-lines">
           {{{message_lines_html}}}
         </section>

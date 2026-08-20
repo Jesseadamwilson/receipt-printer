@@ -204,13 +204,13 @@ Job/profile editor:
 
 - Open add-on ingress and go to `/ui`.
 - Add, edit, remove, and choose the default printer. **Save changes** persists the printer list immediately; no Home Assistant restart is required.
-- Assign an independent printer and optional pre-run Home Assistant script to `Daily Agenda` and `Send Message`.
+- Assign an independent printer to `Daily Agenda` and `Send Message`. Each run submits exactly one print job; pre-print script hooks are intentionally not supported because a script that calls the print API can create a recursive print loop.
 - `Daily Agenda`: configure structured Weather, Health Connect Sleep, Calendar, Battery, Alert, and Notes sources with searchable entity pickers.
-- `Send Message`: select a Home Assistant text/sensor entity or use saved freeform text.
-- Preview or run either job directly. Advanced receipt CSS remains available in a collapsed editor.
+- `Send Message`: configure a header, subject, body, and optional uploaded image. JPG, PNG, WebP, GIF, AVIF, BMP, TIFF, HEIC, and HEIF inputs are normalized to a persistent PNG for printing.
+- Preview or run either job directly. Preview opens in a visible receipt panel below the jobs. Advanced receipt CSS remains available in a collapsed editor.
 - Ingress UI mirrors Home Assistant theme variables and follows dark/light mode from HA.
 
-The add-on Ingress page is an isolated web app, so its searchable entity fields are backed by the Home Assistant states API and styled to match HA. The separately installed custom integration uses Home Assistant's literal native `EntitySelector` controls and exposes pressable job button entities.
+The add-on Ingress page is an isolated web app, so its searchable agenda entity fields are backed by the Home Assistant states API and styled to match HA. The separately installed custom integration uses Home Assistant's literal native `EntitySelector` controls and exposes pressable job button entities.
 
 If agenda prints only subtitle/no content:
 
@@ -265,8 +265,8 @@ Install the integration through **HACS → Integrations → Custom repositories*
 1. Go to **Settings → Devices & services → Add integration → Receipt Printer**.
 2. Enter the add-on API URL, normally `http://homeassistant.local:8099`.
 3. Open **Configure** on the new integration.
-4. Choose data sources with native entity selectors for weather, Health Connect sleep duration, calendars, batteries, alerts, notes, and message text.
-5. Optionally assign a Home Assistant script to either job. The script runs to completion immediately before printing, which is useful for refreshing or preparing source data.
+4. Choose data sources with native entity selectors for weather, Health Connect sleep duration, calendars, batteries, alerts, and notes.
+5. Configure message header, subject, body, and image from the add-on's Receipt Printer panel.
 
 For every configured printer the integration creates:
 

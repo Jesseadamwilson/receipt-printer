@@ -10,7 +10,6 @@ CONF_VERIFY_SSL = "verify_ssl"
 
 CONF_DAILY_AGENDA_ENABLED = "daily_agenda_enabled"
 CONF_DAILY_AGENDA_PROFILE = "daily_agenda_profile"
-CONF_DAILY_AGENDA_SCRIPT = "daily_agenda_script"
 CONF_AGENDA_WEATHER_ENTITY = "agenda_weather_entity"
 CONF_AGENDA_SLEEP_ENTITY = "agenda_sleep_entity"
 CONF_AGENDA_CALENDAR_ENTITIES = "agenda_calendar_entities"
@@ -20,8 +19,6 @@ CONF_AGENDA_NOTES_ENTITY = "agenda_notes_entity"
 
 CONF_MESSAGE_ENABLED = "message_enabled"
 CONF_MESSAGE_PROFILE = "message_profile"
-CONF_MESSAGE_ENTITY = "message_entity"
-CONF_MESSAGE_SCRIPT = "message_script"
 
 DEFAULT_API_URL = "http://homeassistant.local:8099"
 

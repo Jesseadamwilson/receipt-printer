@@ -1,6 +1,6 @@
 {
   "name": "ha-receipt-printer-addon-app",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "private": true,
   "description": "Home Assistant add-on app for receipt printing",
   "main": "src/index.js",
@@ -12,9 +12,11 @@
     "node": ">=20"
   },
   "dependencies": {
-    "dotenv": "^16.4.5",
-    "playwright-core": "^1.52.0",
     "@point-of-sale/receipt-printer-encoder": "^3.0.3",
-    "pngjs": "^7.0.0"
+    "dotenv": "^16.4.5",
+    "heic-convert": "^2.1.0",
+    "playwright-core": "^1.52.0",
+    "pngjs": "^7.0.0",
+    "sharp": "^0.35.3"
   }
 }

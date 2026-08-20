@@ -227,6 +227,7 @@ function loadConfig() {
       'PROFILE_STORE_PATH',
       path.resolve(process.cwd(), 'output', 'profiles.json')
     ),
+    messageImageDir: parseStringEnv('MESSAGE_IMAGE_DIR', ''),
     printers,
     defaultPrinterId: defaultPrinter.id,
     printerHost: defaultPrinter.host,

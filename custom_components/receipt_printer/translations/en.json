@@ -26,11 +26,10 @@
     "step": {
       "init": {
         "title": "Configure print jobs",
-        "description": "Each enabled job becomes a button on every configured printer. An assigned script runs to completion immediately before the print job.",
+        "description": "Each enabled job becomes a button on every configured printer and submits exactly one print request.",
         "data": {
           "daily_agenda_enabled": "Enable Daily Agenda job",
           "daily_agenda_profile": "Daily Agenda profile",
-          "daily_agenda_script": "Daily Agenda pre-print script",
           "agenda_weather_entity": "Weather entity",
           "agenda_sleep_entity": "Sleep duration entity",
           "agenda_calendar_entities": "Calendar entities",
@@ -38,15 +37,10 @@
           "agenda_alert_entities": "Alert entities",
           "agenda_notes_entity": "Notes entity",
           "message_enabled": "Enable Send Message job",
-          "message_profile": "Message profile",
-          "message_entity": "Message text entity",
-          "message_script": "Send Message pre-print script"
+          "message_profile": "Message profile"
         },
         "data_description": {
-          "daily_agenda_script": "Optional Home Assistant script used to refresh or prepare data before printing.",
-          "agenda_sleep_entity": "Health Connect sleep duration is supported and converted from minutes automatically.",
-          "message_entity": "Optional input_text, text, or sensor whose current state replaces the saved message body.",
-          "message_script": "Optional Home Assistant script used to prepare the message before printing."
+          "agenda_sleep_entity": "Health Connect sleep duration is supported and converted from minutes automatically."
         }
       }
     },

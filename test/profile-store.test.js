@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { createProfileStore } = require('../src/profile-store');
 
-test('job printer, script, and message entity assignments persist', (t) => {
+test('job printer and structured message content persist without script hooks', (t) => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'receipt-profiles-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const config = {
@@ -20,18 +20,24 @@ test('job printer, script, and message entity assignments persist', (t) => {
   const daily = initial.profiles.find((profile) => profile.template === 'daily_agenda');
   const message = initial.profiles.find((profile) => profile.template === 'message');
   daily.printerId = 'office';
-  daily.scriptEntity = 'script.prepare_agenda';
   message.printerId = 'office';
-  message.scriptEntity = 'script.prepare_message';
-  message.messageEntity = 'input_text.receipt_message';
+  message.messageHeader = 'FROM JESSE';
+  message.messageSubject = 'Dinner is ready';
+  message.messageBody = 'Come to the kitchen.';
+  message.messageImagePath = '/config/receipt-printer/uploads/message_main.png';
+  message.messageImageName = 'dinner.heic';
 
   store.save(initial);
   const restarted = createProfileStore(config).get();
   const savedDaily = restarted.profiles.find((profile) => profile.template === 'daily_agenda');
   const savedMessage = restarted.profiles.find((profile) => profile.template === 'message');
   assert.equal(savedDaily.printerId, 'office');
-  assert.equal(savedDaily.scriptEntity, 'script.prepare_agenda');
   assert.equal(savedMessage.printerId, 'office');
-  assert.equal(savedMessage.scriptEntity, 'script.prepare_message');
-  assert.equal(savedMessage.messageEntity, 'input_text.receipt_message');
+  assert.equal(savedMessage.messageHeader, 'FROM JESSE');
+  assert.equal(savedMessage.messageSubject, 'Dinner is ready');
+  assert.equal(savedMessage.messageBody, 'Come to the kitchen.');
+  assert.equal(savedMessage.messageImagePath, '/config/receipt-printer/uploads/message_main.png');
+  assert.equal(savedMessage.messageImageName, 'dinner.heic');
+  assert.equal(Object.hasOwn(savedDaily, 'scriptEntity'), false);
+  assert.equal(Object.hasOwn(savedMessage, 'scriptEntity'), false);
 });

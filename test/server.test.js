@@ -33,7 +33,6 @@ function createTestServer(capturedJobs) {
         template: 'daily_agenda',
         enabled: true,
         printerId: 'kitchen',
-        scriptEntity: 'script.prepare_agenda',
         items: []
       },
       {
@@ -42,7 +41,9 @@ function createTestServer(capturedJobs) {
         template: 'message',
         enabled: true,
         printerId: 'kitchen',
-        messageEntity: 'input_text.receipt_message',
+        messageHeader: 'FROM THE KITCHEN',
+        messageSubject: 'Dinner is ready',
+        messageImageName: 'dinner.heic',
         items: []
       }
     ]
@@ -91,6 +92,22 @@ function createTestServer(capturedJobs) {
         return '/tmp/printers.json';
       }
     },
+    messageImageStore: {
+      getPath(profileId) {
+        return `/tmp/${profileId}.png`;
+      },
+      async save(input) {
+        return {
+          profileId: input.profileId,
+          path: `/tmp/${input.profileId}.png`,
+          name: input.fileName,
+          mimeType: 'image/png'
+        };
+      },
+      remove(profileId) {
+        return { profileId, path: `/tmp/${profileId}.png`, removed: true };
+      }
+    },
     async listEntities() {
       return [];
     },
@@ -123,8 +140,32 @@ test('printer and job metadata are exposed and print jobs retain printer ID', as
 
   const jobs = await (await fetch(`${baseUrl}/api/jobs`)).json();
   assert.deepEqual(jobs.jobs.map((job) => job.type), ['daily_agenda', 'message']);
-  assert.equal(jobs.jobs[0].scriptEntity, 'script.prepare_agenda');
-  assert.equal(jobs.jobs[1].messageEntity, 'input_text.receipt_message');
+  assert.equal(Object.hasOwn(jobs.jobs[0], 'scriptEntity'), false);
+  assert.equal(Object.hasOwn(jobs.jobs[1], 'scriptEntity'), false);
+  assert.equal(jobs.jobs[1].messageHeader, 'FROM THE KITCHEN');
+  assert.equal(jobs.jobs[1].messageSubject, 'Dinner is ready');
+  assert.equal(jobs.jobs[1].messageImageName, 'dinner.heic');
+
+  const uploadResponse = await fetch(`${baseUrl}/api/message-image`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      profileId: 'message_main',
+      fileName: 'new-photo.heic',
+      mimeType: 'image/heic',
+      dataUrl: 'data:image/heic;base64,AAAA'
+    })
+  });
+  assert.equal(uploadResponse.status, 200);
+  const uploaded = await uploadResponse.json();
+  assert.equal(uploaded.image.name, 'new-photo.heic');
+
+  const removeImageResponse = await fetch(`${baseUrl}/api/message-image/remove`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profileId: 'message_main' })
+  });
+  assert.equal(removeImageResponse.status, 200);
 
   const savePrintersResponse = await fetch(`${baseUrl}/api/printers`, {
     method: 'PUT',

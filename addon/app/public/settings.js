@@ -25,7 +25,8 @@
     customCss: '',
     dirty: false,
     previewUrl: '',
-    searchTimers: new Map()
+    searchTimers: new Map(),
+    runningJobs: new Set()
   };
   const ui = {};
 
@@ -135,26 +136,27 @@
     if (!Array.isArray(state.store.profiles)) state.store.profiles = [];
     let daily = getProfile('daily_agenda');
     if (!daily) {
-      daily = { id: 'daily_agenda_main', name: 'Daily Agenda', template: 'daily_agenda', enabled: true, printerId: state.defaultPrinterId, scriptEntity: '', items: [], ganttDayStartTime: '06:00', ganttDayEndTime: '00:00' };
+      daily = { id: 'daily_agenda_main', name: 'Daily Agenda', template: 'daily_agenda', enabled: true, printerId: state.defaultPrinterId, items: [], ganttDayStartTime: '06:00', ganttDayEndTime: '00:00' };
       state.store.profiles.push(daily);
     }
     daily.items = Array.isArray(daily.items) ? daily.items : [];
     daily.printerId = state.printers.some((printer) => printer.id === daily.printerId) ? daily.printerId : state.defaultPrinterId;
-    daily.scriptEntity = asString(daily.scriptEntity, '');
     if (!Object.prototype.hasOwnProperty.call(daily, 'ganttDayStartTime')) daily.ganttDayStartTime = '06:00';
     if (!Object.prototype.hasOwnProperty.call(daily, 'ganttDayEndTime')) daily.ganttDayEndTime = '00:00';
     state.store.defaultDailyAgendaProfileId = daily.id;
 
     let message = getProfile('message');
     if (!message) {
-      message = { id: 'message_main', name: 'Send Message', template: 'message', enabled: true, printerId: state.defaultPrinterId, scriptEntity: '', messageEntity: '', messageBody: '', items: [] };
+      message = { id: 'message_main', name: 'Send Message', template: 'message', enabled: true, printerId: state.defaultPrinterId, messageHeader: 'MESSAGE', messageSubject: 'A Message For You', messageBody: '', messageImagePath: '', messageImageName: '', items: [] };
       state.store.profiles.push(message);
     }
     message.items = Array.isArray(message.items) ? message.items : [];
     message.printerId = state.printers.some((printer) => printer.id === message.printerId) ? message.printerId : state.defaultPrinterId;
-    message.scriptEntity = asString(message.scriptEntity, '');
-    message.messageEntity = asString(message.messageEntity, '');
+    message.messageHeader = asRawString(message.messageHeader, 'MESSAGE');
+    message.messageSubject = asRawString(message.messageSubject, '');
     message.messageBody = asRawString(message.messageBody, '');
+    message.messageImagePath = asString(message.messageImagePath, '');
+    message.messageImageName = asString(message.messageImageName, '');
   }
 
   function printerOptions(selectedId) {
@@ -227,22 +229,22 @@
     ui.dailyName.value = daily.name;
     ui.dailyEnabled.checked = daily.enabled !== false;
     ui.dailyPrinter.innerHTML = printerOptions(daily.printerId);
-    ui.dailyScript.value = daily.scriptEntity || '';
     ui.ganttStart.innerHTML = timeOptions(daily.ganttDayStartTime || '06:00');
     ui.ganttEnd.innerHTML = timeOptions(daily.ganttDayEndTime || '00:00');
     const dailyPrinter = state.printers.find((printer) => printer.id === daily.printerId);
     const enabledSources = daily.items.filter((item) => item.enabled !== false && item.entity).length;
-    ui.dailySummary.textContent = `${dailyPrinter ? dailyPrinter.name : 'No printer'} · ${enabledSources} data source${enabledSources === 1 ? '' : 's'}${daily.scriptEntity ? ` · ${daily.scriptEntity}` : ''}`;
+    ui.dailySummary.textContent = `${dailyPrinter ? dailyPrinter.name : 'No printer'} · ${enabledSources} data source${enabledSources === 1 ? '' : 's'}`;
 
     ui.messageName.value = message.name;
     ui.messageEnabled.checked = message.enabled !== false;
     ui.messagePrinter.innerHTML = printerOptions(message.printerId);
-    ui.messageScript.value = message.scriptEntity || '';
-    ui.messageEntity.value = message.messageEntity || '';
+    ui.messageHeader.value = message.messageHeader || '';
+    ui.messageSubject.value = message.messageSubject || '';
     ui.messageBody.value = message.messageBody || '';
     const messagePrinter = state.printers.find((printer) => printer.id === message.printerId);
-    const sourceLabel = message.messageEntity || (message.messageBody ? 'Saved message text' : 'No message content');
-    ui.messageSummary.textContent = `${messagePrinter ? messagePrinter.name : 'No printer'} · ${sourceLabel}${message.scriptEntity ? ` · ${message.scriptEntity}` : ''}`;
+    const sourceLabel = message.messageSubject || message.messageHeader || (message.messageBody ? 'Saved message text' : 'No message content');
+    ui.messageSummary.textContent = `${messagePrinter ? messagePrinter.name : 'No printer'} · ${sourceLabel}${message.messageImagePath ? ' · Image' : ''}`;
+    renderMessageImage();
     renderSources();
   }
 
@@ -348,13 +350,15 @@
     state.searchTimers.set(input, timer);
   }
 
-  function showPreview(blob) {
+  function showPreview(blob, title) {
     if (state.previewUrl) URL.revokeObjectURL(state.previewUrl);
     state.previewUrl = URL.createObjectURL(blob);
+    ui.previewTitle.textContent = `${title} preview`;
+    ui.previewSection.hidden = false;
     ui.previewImage.src = state.previewUrl;
     ui.previewImage.hidden = false;
     ui.previewEmpty.hidden = true;
-    ui.previewImage.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    ui.previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function ensureSaved() {
@@ -364,28 +368,39 @@
   async function previewDaily() {
     await ensureSaved();
     const profile = getProfile('daily_agenda');
-    showPreview(await fetchPreview('/preview/daily-agenda', { profileId: profile.id, title: profile.name, subtitle: 'Today', source: 'auto' }));
+    showPreview(await fetchPreview('/preview/daily-agenda', { profileId: profile.id, title: profile.name, subtitle: 'Today', source: 'auto' }), profile.name);
     setStatus('Daily Agenda preview generated.', 'success');
   }
 
   async function previewMessage() {
     await ensureSaved();
     const profile = getProfile('message');
-    showPreview(await fetchPreview('/preview/message', { profileId: profile.id }));
+    showPreview(await fetchPreview('/preview/message', { profileId: profile.id }), profile.name);
     setStatus('Message preview generated.', 'success');
   }
 
   async function runJob(template) {
-    await ensureSaved();
-    const profile = getProfile(template);
-    const endpoint = template === 'daily_agenda' ? '/print/daily-agenda' : '/print/message';
-    setStatus(`Running ${profile.name}…`);
-    const payload = await fetchJson(endpoint, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ printerId: profile.printerId, profileId: profile.id, title: profile.name, source: 'auto', print: { feedLines: 3, cut: true } })
-    });
-    const jobId = payload.job && payload.job.id ? payload.job.id : 'queued';
-    setStatus(`${profile.name} completed (${jobId}).`, 'success');
+    if (state.runningJobs.has(template)) return;
+    state.runningJobs.add(template);
+    const action = template === 'daily_agenda' ? 'run-daily' : 'run-message';
+    const button = document.querySelector(`[data-action="${action}"]`);
+    if (button) button.disabled = true;
+
+    try {
+      await ensureSaved();
+      const profile = getProfile(template);
+      const endpoint = template === 'daily_agenda' ? '/print/daily-agenda' : '/print/message';
+      setStatus(`Running ${profile.name}…`);
+      const payload = await fetchJson(endpoint, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ printerId: profile.printerId, profileId: profile.id, title: profile.name, source: 'auto', print: { feedLines: 3, cut: true } })
+      });
+      const jobId = payload.job && payload.job.id ? payload.job.id : 'queued';
+      setStatus(`${profile.name} completed (${jobId}).`, 'success');
+    } finally {
+      state.runningJobs.delete(template);
+      if (button) button.disabled = false;
+    }
   }
 
   async function perform(action) {
@@ -394,6 +409,83 @@
     } catch (error) {
       setStatus(error.message || String(error), 'error');
     }
+  }
+
+  function inferImageMimeType(file) {
+    if (file.type && file.type.startsWith('image/')) return file.type.toLowerCase();
+    const extension = asString(file.name, '').split('.').pop().toLowerCase();
+    const byExtension = {
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp',
+      gif: 'image/gif', avif: 'image/avif', bmp: 'image/bmp', tif: 'image/tiff',
+      tiff: 'image/tiff', heic: 'image/heic', heif: 'image/heif'
+    };
+    return byExtension[extension] || '';
+  }
+
+  function readFileAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.addEventListener('load', () => resolve(String(reader.result || '')));
+      reader.addEventListener('error', () => reject(reader.error || new Error('Could not read image')));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderMessageImage() {
+    const profile = getProfile('message');
+    const hasImage = Boolean(profile && profile.messageImagePath);
+    ui.messageImagePreview.hidden = !hasImage;
+    ui.removeMessageImage.disabled = !hasImage;
+    ui.messageImageName.textContent = hasImage
+      ? (profile.messageImageName || 'Uploaded image')
+      : 'No image selected';
+    if (hasImage) {
+      ui.messageImagePreview.src = buildApiUrl(`/api/message-image?profileId=${encodeURIComponent(profile.id)}&v=${Date.now()}`);
+    } else {
+      ui.messageImagePreview.removeAttribute('src');
+    }
+  }
+
+  async function uploadMessageImage(file) {
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) throw new Error('Choose an image smaller than 20 MB');
+    const mimeType = inferImageMimeType(file);
+    if (!mimeType) throw new Error('Unsupported image type');
+    const profile = getProfile('message');
+    setStatus(`Uploading ${file.name}…`);
+    const payload = await fetchJson('/api/message-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        profileId: profile.id,
+        fileName: file.name,
+        mimeType,
+        dataUrl: await readFileAsDataUrl(file)
+      })
+    });
+    profile.messageImagePath = payload.image.path;
+    profile.messageImageName = payload.image.name;
+    ui.messageImageInput.value = '';
+    setDirty();
+    renderMessageImage();
+    renderJobSummaries();
+    setStatus('Image uploaded. Save changes to keep it on this message job.', 'success');
+  }
+
+  async function removeMessageImage() {
+    const profile = getProfile('message');
+    if (!profile.messageImagePath) return;
+    await fetchJson('/api/message-image/remove', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileId: profile.id })
+    });
+    profile.messageImagePath = '';
+    profile.messageImageName = '';
+    setDirty();
+    renderMessageImage();
+    renderJobSummaries();
+    setStatus('Message image removed. Save changes to keep this setting.', 'success');
   }
 
   function handlePrinterInput(target) {
@@ -421,7 +513,7 @@
     if (!profile) return false;
     profile[field] = target.type === 'checkbox' ? target.checked : target.value;
     setDirty();
-    if (['printerId', 'scriptEntity', 'messageEntity', 'messageBody', 'name'].includes(field)) renderJobSummaries();
+    if (['printerId', 'messageHeader', 'messageSubject', 'messageBody', 'name'].includes(field)) renderJobSummaries();
     return true;
   }
 
@@ -443,16 +535,19 @@
     const message = getProfile('message');
     const dailyPrinter = state.printers.find((printer) => printer.id === daily.printerId);
     const count = daily.items.filter((item) => item.enabled !== false && item.entity).length;
-    ui.dailySummary.textContent = `${dailyPrinter ? dailyPrinter.name : 'No printer'} · ${count} data source${count === 1 ? '' : 's'}${daily.scriptEntity ? ` · ${daily.scriptEntity}` : ''}`;
+    ui.dailySummary.textContent = `${dailyPrinter ? dailyPrinter.name : 'No printer'} · ${count} data source${count === 1 ? '' : 's'}`;
     ui.dailySourceCount.textContent = String(count);
     const messagePrinter = state.printers.find((printer) => printer.id === message.printerId);
-    ui.messageSummary.textContent = `${messagePrinter ? messagePrinter.name : 'No printer'} · ${message.messageEntity || (message.messageBody ? 'Saved message text' : 'No message content')}${message.scriptEntity ? ` · ${message.scriptEntity}` : ''}`;
+    const sourceLabel = message.messageSubject || message.messageHeader || (message.messageBody ? 'Saved message text' : 'No message content');
+    ui.messageSummary.textContent = `${messagePrinter ? messagePrinter.name : 'No printer'} · ${sourceLabel}${message.messageImagePath ? ' · Image' : ''}`;
   }
 
   function handleInput(event) {
     const target = event.target;
     if (!(target instanceof HTMLInputElement) && !(target instanceof HTMLSelectElement) && !(target instanceof HTMLTextAreaElement)) return;
-    if (target === ui.customCss) {
+    if (target === ui.messageImageInput) {
+      if (event.type === 'change') perform(() => uploadMessageImage(target.files && target.files[0]));
+    } else if (target === ui.customCss) {
       state.customCss = target.value;
       setDirty();
     } else if (!handlePrinterInput(target) && !handleProfileInput(target)) {
@@ -490,6 +585,8 @@
       if (printer) { state.defaultPrinterId = printer.id; setDirty(); renderAll(); }
     } else if (action === 'preview-daily') perform(previewDaily);
     else if (action === 'preview-message') perform(previewMessage);
+    else if (action === 'remove-message-image') perform(removeMessageImage);
+    else if (action === 'close-preview') ui.previewSection.hidden = true;
     else if (action === 'run-daily') perform(() => runJob('daily_agenda'));
     else if (action === 'run-message') perform(() => runJob('message'));
   }
@@ -506,8 +603,8 @@
   }
 
   function cacheUi() {
-    const ids = ['reload-btn', 'save-btn', 'add-printer-btn', 'printer-list', 'printer-count', 'job-count', 'connection-dot', 'connection-title', 'connection-detail', 'daily-name', 'daily-enabled', 'daily-printer', 'daily-script', 'daily-summary', 'daily-source-count', 'gantt-day-start-time', 'gantt-day-end-time', 'source-groups', 'message-name', 'message-enabled', 'message-printer', 'message-script', 'message-entity', 'message-body', 'message-summary', 'custom-css', 'preview-image', 'preview-empty', 'status-bar'];
-    const aliases = { 'reload-btn': 'reloadBtn', 'save-btn': 'saveBtn', 'add-printer-btn': 'addPrinterBtn', 'printer-list': 'printerList', 'printer-count': 'printerCount', 'job-count': 'jobCount', 'connection-dot': 'connectionDot', 'connection-title': 'connectionTitle', 'connection-detail': 'connectionDetail', 'daily-name': 'dailyName', 'daily-enabled': 'dailyEnabled', 'daily-printer': 'dailyPrinter', 'daily-script': 'dailyScript', 'daily-summary': 'dailySummary', 'daily-source-count': 'dailySourceCount', 'gantt-day-start-time': 'ganttStart', 'gantt-day-end-time': 'ganttEnd', 'source-groups': 'sourceGroups', 'message-name': 'messageName', 'message-enabled': 'messageEnabled', 'message-printer': 'messagePrinter', 'message-script': 'messageScript', 'message-entity': 'messageEntity', 'message-body': 'messageBody', 'message-summary': 'messageSummary', 'custom-css': 'customCss', 'preview-image': 'previewImage', 'preview-empty': 'previewEmpty', 'status-bar': 'statusBar' };
+    const ids = ['reload-btn', 'save-btn', 'add-printer-btn', 'printer-list', 'printer-count', 'job-count', 'connection-dot', 'connection-title', 'connection-detail', 'daily-name', 'daily-enabled', 'daily-printer', 'daily-summary', 'daily-source-count', 'gantt-day-start-time', 'gantt-day-end-time', 'source-groups', 'message-name', 'message-enabled', 'message-printer', 'message-header', 'message-subject', 'message-body', 'message-summary', 'message-image-input', 'message-image-preview', 'message-image-name', 'remove-message-image', 'custom-css', 'preview-section', 'preview-title', 'preview-image', 'preview-empty', 'status-bar'];
+    const aliases = { 'reload-btn': 'reloadBtn', 'save-btn': 'saveBtn', 'add-printer-btn': 'addPrinterBtn', 'printer-list': 'printerList', 'printer-count': 'printerCount', 'job-count': 'jobCount', 'connection-dot': 'connectionDot', 'connection-title': 'connectionTitle', 'connection-detail': 'connectionDetail', 'daily-name': 'dailyName', 'daily-enabled': 'dailyEnabled', 'daily-printer': 'dailyPrinter', 'daily-summary': 'dailySummary', 'daily-source-count': 'dailySourceCount', 'gantt-day-start-time': 'ganttStart', 'gantt-day-end-time': 'ganttEnd', 'source-groups': 'sourceGroups', 'message-name': 'messageName', 'message-enabled': 'messageEnabled', 'message-printer': 'messagePrinter', 'message-header': 'messageHeader', 'message-subject': 'messageSubject', 'message-body': 'messageBody', 'message-summary': 'messageSummary', 'message-image-input': 'messageImageInput', 'message-image-preview': 'messageImagePreview', 'message-image-name': 'messageImageName', 'remove-message-image': 'removeMessageImage', 'custom-css': 'customCss', 'preview-section': 'previewSection', 'preview-title': 'previewTitle', 'preview-image': 'previewImage', 'preview-empty': 'previewEmpty', 'status-bar': 'statusBar' };
     for (const id of ids) ui[aliases[id]] = document.getElementById(id);
   }
 

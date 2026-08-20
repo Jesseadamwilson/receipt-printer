@@ -3,6 +3,7 @@ const path = require('node:path');
 const { loadConfig, resolvePrinter } = require('./config');
 const { PrintQueue } = require('./queue');
 const { createReceiptServer } = require('./server');
+const { createMessageImageStore } = require('./message-image-store');
 const {
   renderTemplateToPng,
   readCustomCss,
@@ -10,11 +11,7 @@ const {
 } = require('./render-template');
 const { buildDailyAgendaTemplateData } = require('./daily-agenda');
 const { hydrateDailyAgendaFromHomeAssistant } = require('./ha-data-source');
-const {
-  fetchHomeAssistantJson,
-  callHomeAssistantService,
-  listHomeAssistantEntities
-} = require('./ha-client');
+const { listHomeAssistantEntities } = require('./ha-client');
 const {
   createProfileStore,
   deriveAgendaSourceConfigFromProfile
@@ -1010,21 +1007,37 @@ function buildMessageTemplateData(payload, selectedProfile) {
 
   const generatedAt = new Date();
   const printedAt = asString(safePayload.footer, generatedAt.toLocaleString());
-  const headline = asString(safePayload.headline, selectedProfile ? selectedProfile.name : 'Message');
+  const messageHeader = asString(
+    safePayload.headline,
+    selectedProfile ? selectedProfile.messageHeader : 'MESSAGE'
+  );
+  const messageSubject = asString(
+    safePayload.subject,
+    selectedProfile ? selectedProfile.messageSubject : ''
+  );
+  const messageImagePath = asString(
+    safePayload.imagePath,
+    selectedProfile ? selectedProfile.messageImagePath : ''
+  );
   const messageText = lines.join('\n');
   const messageLinesHtml = buildParagraphHtml(lines, 'message-line');
   const dateTokens = buildDateTokens(generatedAt);
 
   return {
-    headline,
+    headline: messageHeader,
     lines,
     printedAt,
     showHeader: true,
     showFooter: true,
     templateContext: {
       template_type: 'message',
-      title: headline,
-      headline,
+      title: messageSubject || messageHeader,
+      headline: messageHeader,
+      message_header: messageHeader,
+      message_subject: messageSubject,
+      message_subject_hidden_class: messageSubject ? '' : 'is-hidden',
+      message_image_src: messageImagePath,
+      message_image_hidden_class: messageImagePath ? '' : 'is-hidden',
       message_text: messageText,
       message_lines: messageText,
       message_lines_html: messageLinesHtml,
@@ -1223,47 +1236,12 @@ async function runTextJob(config, payload) {
   };
 }
 
-async function runAssignedScript(config, profile) {
-  const scriptEntity = asString(profile && profile.scriptEntity, '');
-  if (!scriptEntity) {
-    return null;
-  }
-
-  return callHomeAssistantService(config, scriptEntity, {});
-}
-
-async function resolveMessageEntityValue(config, profile) {
-  const entityId = asString(profile && profile.messageEntity, '');
-  if (!entityId) {
-    return null;
-  }
-
-  const state = await fetchHomeAssistantJson(
-    config,
-    `/states/${encodeURIComponent(entityId)}`
-  );
-  const value = asRawString(state && state.state, '');
-  if (!value || ['unknown', 'unavailable'].includes(value.toLowerCase())) {
-    return null;
-  }
-
-  return { entityId, value };
-}
-
 async function runMessageJob(config, deps, payload) {
   const safePayload = payload && typeof payload === 'object' ? payload : {};
   const profileStore = deps && deps.profileStore ? deps.profileStore : null;
   const requestedProfileId = asString(safePayload.profileId, '');
   const selectedProfile = resolveMessageProfile(profileStore, requestedProfileId);
-  const script = await runAssignedScript(config, selectedProfile);
-  let messageEntity = null;
-  if (!safePayload.hasMessageOverride && !(Array.isArray(safePayload.lines) && safePayload.lines.length > 0)) {
-    messageEntity = await resolveMessageEntityValue(config, selectedProfile);
-  }
-  const effectivePayload = messageEntity
-    ? { ...safePayload, hasMessageOverride: true, message: messageEntity.value }
-    : safePayload;
-  const templateData = buildMessageTemplateData(effectivePayload, selectedProfile);
+  const templateData = buildMessageTemplateData(safePayload, selectedProfile);
 
   const result = await runRenderJob(config, {
     templateType: 'message',
@@ -1282,12 +1260,10 @@ async function runMessageJob(config, deps, payload) {
       }
       : null,
     source: {
-      usedProfileBody: !safePayload.hasMessageOverride && !messageEntity,
+      usedProfileBody: !safePayload.hasMessageOverride,
       usedPayloadMessage: safePayload.hasMessageOverride,
-      usedPayloadLines: Array.isArray(safePayload.lines) && safePayload.lines.length > 0,
-      messageEntity: messageEntity ? messageEntity.entityId : ''
-    },
-    script
+      usedPayloadLines: Array.isArray(safePayload.lines) && safePayload.lines.length > 0
+    }
   };
 }
 
@@ -1358,8 +1334,6 @@ async function runDailyAgendaJob(config, deps, payload) {
       : profileStore.getDefaultDailyAgendaProfile())
     : null;
 
-  const script = await runAssignedScript(config, selectedProfile);
-
   const profileSources = selectedProfile
     ? deriveAgendaSourceConfigFromProfile(selectedProfile, config)
     : null;
@@ -1409,8 +1383,7 @@ async function runDailyAgendaJob(config, deps, payload) {
         template: selectedProfile.template,
         itemCount: Array.isArray(selectedProfile.items) ? selectedProfile.items.length : 0
       }
-      : null,
-    script
+      : null
   };
 }
 
@@ -1423,14 +1396,7 @@ async function previewMessage(config, deps, payload) {
     ...safePayload,
     hasMessageOverride: Object.prototype.hasOwnProperty.call(safePayload, 'message')
   };
-  let messageEntity = null;
-  if (!normalizedPayload.hasMessageOverride && !(Array.isArray(normalizedPayload.lines) && normalizedPayload.lines.length > 0)) {
-    messageEntity = await resolveMessageEntityValue(config, selectedProfile);
-  }
-  const effectivePayload = messageEntity
-    ? { ...normalizedPayload, hasMessageOverride: true, message: messageEntity.value }
-    : normalizedPayload;
-  const templateData = buildMessageTemplateData(effectivePayload, selectedProfile);
+  const templateData = buildMessageTemplateData(normalizedPayload, selectedProfile);
 
   const imagePath = await renderTemplateToPng(config, templateData, {
     templateType: 'message',
@@ -1440,7 +1406,6 @@ async function previewMessage(config, deps, payload) {
   return {
     imagePath,
     templateData,
-    messageEntity: messageEntity ? messageEntity.entityId : '',
     profile: selectedProfile
       ? {
         id: selectedProfile.id,
@@ -1560,6 +1525,7 @@ function startServer() {
   const serviceMeta = readPackageMetadata();
   const printerStore = createPrinterStore(config);
   const profileStore = createProfileStore(config);
+  const messageImageStore = createMessageImageStore(config);
   const deps = {
     profileStore
   };
@@ -1576,6 +1542,7 @@ function startServer() {
     serviceMeta,
     profileStore,
     printerStore,
+    messageImageStore,
     listEntities: (options) => listHomeAssistantEntities(config, options),
     previewMessage: (payload) => previewMessage(config, deps, payload),
     previewDailyAgenda: (payload) => previewDailyAgenda(config, deps, payload),
@@ -1603,7 +1570,8 @@ function startServer() {
     queue,
     config,
     printerStore,
-    profileStore
+    profileStore,
+    messageImageStore
   };
 }
 

@@ -6,7 +6,6 @@ from typing import Any
 
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -21,11 +20,8 @@ from .const import (
     CONF_AGENDA_WEATHER_ENTITY,
     CONF_DAILY_AGENDA_ENABLED,
     CONF_DAILY_AGENDA_PROFILE,
-    CONF_DAILY_AGENDA_SCRIPT,
     CONF_MESSAGE_ENABLED,
-    CONF_MESSAGE_ENTITY,
     CONF_MESSAGE_PROFILE,
-    CONF_MESSAGE_SCRIPT,
     DOMAIN,
     JOB_DAILY_AGENDA,
     JOB_MESSAGE,
@@ -104,34 +100,6 @@ class ReceiptPrinterJobButton(ReceiptPrinterEntity, ButtonEntity):
             or _first_job_id(self._jobs, self._job_type)
         )
 
-    async def _async_run_assigned_script(self) -> None:
-        selected_job = next(
-            (
-                job
-                for job in self._jobs
-                if str(job.get("id") or "") == self.profile_id
-                and job.get("type") == self._job_type
-            ),
-            None,
-        )
-        # A script saved on the add-on job is executed by the add-on. Avoid
-        # invoking a second integration-level script for the same button press.
-        if selected_job and selected_job.get("scriptEntity"):
-            return
-
-        option_key = (
-            CONF_DAILY_AGENDA_SCRIPT
-            if self._job_type == JOB_DAILY_AGENDA
-            else CONF_MESSAGE_SCRIPT
-        )
-        entity_id = str(self._entry.options.get(option_key) or "")
-        if not entity_id:
-            return
-        domain, separator, service = entity_id.partition(".")
-        if domain != "script" or not separator or not service:
-            raise HomeAssistantError(f"Invalid assigned script entity: {entity_id}")
-        await self.hass.services.async_call(domain, service, {}, blocking=True)
-
     def _daily_agenda_data(self) -> dict[str, Any]:
         options = self._entry.options
         source_keys = {
@@ -156,20 +124,10 @@ class ReceiptPrinterJobButton(ReceiptPrinterEntity, ButtonEntity):
         return data
 
     def _message_data(self) -> dict[str, Any]:
-        data: dict[str, Any] = {"print": {"feedLines": 3, "cut": True}}
-        entity_id = str(self._entry.options.get(CONF_MESSAGE_ENTITY) or "")
-        if not entity_id:
-            return data
-
-        state = self.hass.states.get(entity_id)
-        if state is None or state.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
-            raise HomeAssistantError(f"Message entity is not available: {entity_id}")
-        data["message"] = state.state
-        return data
+        return {"print": {"feedLines": 3, "cut": True}}
 
     async def async_press(self) -> None:
-        """Run the assigned script, then submit the print job."""
-        await self._async_run_assigned_script()
+        """Submit exactly one print job."""
         data = (
             self._daily_agenda_data()
             if self._job_type == JOB_DAILY_AGENDA

@@ -52,16 +52,17 @@ function noContentResponse(res) {
   res.end();
 }
 
-function parseJsonBody(req) {
+function parseJsonBody(req, maxBytes = 1024 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let totalBytes = 0;
-    const maxBytes = 1024 * 1024;
 
     req.on('data', (chunk) => {
       totalBytes += chunk.length;
       if (totalBytes > maxBytes) {
-        reject(new Error('Request body exceeds 1MB limit'));
+        const error = new Error(`Request body exceeds ${Math.ceil(maxBytes / (1024 * 1024))}MB limit`);
+        error.statusCode = 413;
+        reject(error);
         req.destroy();
         return;
       }
@@ -360,6 +361,20 @@ function handleQueueError(error, res) {
   jsonResponse(res, statusCode, response);
 }
 
+function findMessageProfile(profileStore, profileId) {
+  const id = asString(profileId, '');
+  const store = profileStore.get();
+  const profile = Array.isArray(store.profiles)
+    ? store.profiles.find((entry) => entry && entry.id === id && entry.template === 'message')
+    : null;
+  if (!profile) {
+    const error = new Error(`Message profile not found: ${id || 'missing'}`);
+    error.statusCode = 404;
+    throw error;
+  }
+  return { store, profile };
+}
+
 function createReceiptServer(options) {
   const {
     config,
@@ -367,6 +382,7 @@ function createReceiptServer(options) {
     serviceMeta,
     profileStore,
     printerStore,
+    messageImageStore,
     listEntities,
     previewMessage,
     previewDailyAgenda,
@@ -384,6 +400,10 @@ function createReceiptServer(options) {
 
   if (!printerStore || typeof printerStore.get !== 'function' || typeof printerStore.save !== 'function') {
     throw new Error('createReceiptServer requires a printerStore with get()/save()');
+  }
+
+  if (!messageImageStore || typeof messageImageStore.save !== 'function' || typeof messageImageStore.remove !== 'function' || typeof messageImageStore.getPath !== 'function') {
+    throw new Error('createReceiptServer requires a messageImageStore with save()/remove()/getPath()');
   }
 
   if (typeof listEntities !== 'function') {
@@ -455,8 +475,9 @@ function createReceiptServer(options) {
             type: profile.template,
             enabled: profile.enabled !== false,
             printerId: profile.printerId || config.defaultPrinterId,
-            scriptEntity: profile.scriptEntity || '',
-            messageEntity: profile.messageEntity || '',
+            messageHeader: profile.messageHeader || '',
+            messageSubject: profile.messageSubject || '',
+            messageImageName: profile.messageImageName || '',
             dataSources: Array.isArray(profile.items) ? profile.items : []
           }));
         jsonResponse(res, 200, { ok: true, jobs });
@@ -491,6 +512,37 @@ function createReceiptServer(options) {
           templates: PROFILE_TEMPLATES,
           itemTypes: PROFILE_ITEM_TYPES
         });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/message-image') {
+        const profileId = fullUrl.searchParams.get('profileId') || '';
+        const imagePath = messageImageStore.getPath(profileId);
+        if (!fileResponse(res, 200, imagePath, 'image/png')) {
+          jsonResponse(res, 404, { ok: false, error: 'Message image not found' });
+        }
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/message-image') {
+        const body = await parseJsonBody(req, 28 * 1024 * 1024);
+        const { store, profile } = findMessageProfile(profileStore, body.profileId);
+        const image = await messageImageStore.save(body);
+        profile.messageImagePath = image.path;
+        profile.messageImageName = image.name;
+        profileStore.save(store);
+        jsonResponse(res, 200, { ok: true, image });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/message-image/remove') {
+        const body = await parseJsonBody(req);
+        const { store, profile } = findMessageProfile(profileStore, body.profileId);
+        const image = messageImageStore.remove(body.profileId);
+        profile.messageImagePath = '';
+        profile.messageImageName = '';
+        profileStore.save(store);
+        jsonResponse(res, 200, { ok: true, image });
         return;
       }
 

@@ -37,7 +37,7 @@
 
     <section class="section-block" aria-labelledby="jobs-heading">
       <header class="section-header">
-        <div><p class="eyebrow">Automations</p><h2 id="jobs-heading">Print jobs</h2><p class="secondary">Choose a printer, optionally run a Home Assistant script, and connect entities as data sources.</p></div>
+        <div><p class="eyebrow">Automations</p><h2 id="jobs-heading">Print jobs</h2><p class="secondary">Choose a printer, connect data sources, and run each job exactly once.</p></div>
       </header>
 
       <div id="job-list" class="job-list">
@@ -49,7 +49,6 @@
 
           <div class="job-routing">
             <label class="field"><span>Target printer</span><select id="daily-printer" data-profile-field="printerId" data-profile-template="daily_agenda"></select></label>
-            <label class="field entity-field"><span>Script to run first <small>Optional</small></span><input id="daily-script" type="text" role="combobox" autocomplete="off" data-entity-type="script" data-profile-field="scriptEntity" data-profile-template="daily_agenda" list="daily-script-options" placeholder="Search scripts…"><datalist id="daily-script-options"></datalist></label>
             <div class="job-actions"><button class="btn" data-action="preview-daily">Preview</button><button class="btn btn-primary" data-action="run-daily">Run job</button></div>
           </div>
 
@@ -73,15 +72,23 @@
 
           <div class="job-routing">
             <label class="field"><span>Target printer</span><select id="message-printer" data-profile-field="printerId" data-profile-template="message"></select></label>
-            <label class="field entity-field"><span>Script to run first <small>Optional</small></span><input id="message-script" type="text" role="combobox" autocomplete="off" data-entity-type="script" data-profile-field="scriptEntity" data-profile-template="message" list="message-script-options" placeholder="Search scripts…"><datalist id="message-script-options"></datalist></label>
             <div class="job-actions"><button class="btn" data-action="preview-message">Preview</button><button class="btn btn-primary" data-action="run-message">Run job</button></div>
           </div>
 
           <details class="job-details" open>
             <summary>Message content</summary>
             <div class="details-content message-fields">
-              <label class="field entity-field field-wide"><span>Message entity <small>Optional; input_text, text, or sensor</small></span><input id="message-entity" type="text" role="combobox" autocomplete="off" data-entity-type="message" data-profile-field="messageEntity" data-profile-template="message" list="message-entity-options" placeholder="Search Home Assistant entities…"><datalist id="message-entity-options"></datalist></label>
-              <div class="field-divider"><span>or use saved text</span></div>
+              <label class="field field-wide"><span>Message header</span><input id="message-header" type="text" data-profile-field="messageHeader" data-profile-template="message" placeholder="MESSAGE"></label>
+              <label class="field field-wide"><span>Message subject</span><input id="message-subject" type="text" data-profile-field="messageSubject" data-profile-template="message" placeholder="A Message For You"></label>
+              <div class="message-image-editor">
+                <div class="message-image-copy"><strong>Message image</strong><span>Optional · JPG, PNG, WebP, GIF, AVIF, BMP, TIFF, HEIC, or HEIF</span></div>
+                <div class="message-image-controls">
+                  <label class="btn upload-btn" for="message-image-input">Choose image</label>
+                  <input id="message-image-input" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,image/tiff,image/heic,image/heif,.heic,.heif">
+                  <button id="remove-message-image" class="btn" data-action="remove-message-image" type="button">Remove</button>
+                </div>
+                <div class="message-image-current"><img id="message-image-preview" alt="Selected message image" hidden><span id="message-image-name" class="secondary">No image selected</span></div>
+              </div>
               <label class="field field-wide"><span>Message body</span><textarea id="message-body" rows="6" data-profile-field="messageBody" data-profile-template="message" placeholder="Type the message to print…"></textarea></label>
             </div>
           </details>
@@ -89,12 +96,19 @@
       </div>
     </section>
 
+    <section id="preview-section" class="section-block preview-section" aria-labelledby="preview-title" hidden>
+      <header class="section-header">
+        <div><p class="eyebrow">Print preview</p><h2 id="preview-title">Receipt preview</h2><p class="secondary">This is the exact raster image that will be sent to the selected printer.</p></div>
+        <button class="btn" data-action="close-preview" type="button">Close preview</button>
+      </header>
+      <div class="preview-frame"><img id="preview-image" alt="Receipt preview" hidden><p id="preview-empty" class="secondary">Generating preview…</p></div>
+    </section>
+
     <section class="section-block advanced-block" aria-labelledby="advanced-heading">
       <details>
         <summary id="advanced-heading">Advanced template styling</summary>
         <div class="details-content">
           <label class="field"><span>Custom receipt CSS</span><textarea id="custom-css" rows="12" placeholder="/* custom receipt css */"></textarea></label>
-          <div class="preview-frame"><img id="preview-image" alt="Receipt preview" hidden><p id="preview-empty" class="secondary">Run a preview from either job to inspect its receipt.</p></div>
         </div>
       </details>
     </section>
